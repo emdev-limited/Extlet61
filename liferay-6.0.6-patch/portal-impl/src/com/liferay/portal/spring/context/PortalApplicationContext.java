@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2000-2011 Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,7 +25,6 @@ import java.util.List;
 
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.web.context.support.XmlWebApplicationContext;
 
 /**
@@ -40,6 +39,7 @@ import org.springframework.web.context.support.XmlWebApplicationContext;
  */
 public class PortalApplicationContext extends XmlWebApplicationContext {
 
+	@Override
 	protected void loadBeanDefinitions(XmlBeanDefinitionReader reader) {
 		try {
 			super.loadBeanDefinitions(reader);
@@ -66,7 +66,6 @@ public class PortalApplicationContext extends XmlWebApplicationContext {
 			configLocations.remove("META-INF/jpa-spring.xml");
 		}
 
-		reader.setResourceLoader(new PathMatchingResourcePatternResolver());
 		for (String configLocation : configLocations) {
 			try {
 				reader.loadBeanDefinitions(configLocation);

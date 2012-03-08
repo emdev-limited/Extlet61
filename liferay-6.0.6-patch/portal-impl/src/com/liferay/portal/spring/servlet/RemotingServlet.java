@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2000-2011 Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -41,8 +41,9 @@ public class RemotingServlet extends DispatcherServlet {
 		TunnelApplicationContext.class.getName();
 
 	public static final String CONTEXT_CONFIG_LOCATION =
-		"/WEB-INF/remoting-servlet.xml,classpath*:WEB-INF/remoting-servlet-ext.xml";
+		"/WEB-INF/remoting-servlet.xml,/WEB-INF/remoting-servlet-ext.xml";
 
+	@Override
 	public Class<?> getContextClass() {
 		try {
 			return Class.forName(CONTEXT_CLASS);
@@ -54,10 +55,12 @@ public class RemotingServlet extends DispatcherServlet {
 		return null;
 	}
 
+	@Override
 	public String getContextConfigLocation() {
 		return CONTEXT_CONFIG_LOCATION;
 	}
 
+	@Override
 	public void service(
 			HttpServletRequest request, HttpServletResponse response)
 		throws ServletException {
@@ -87,7 +90,7 @@ public class RemotingServlet extends DispatcherServlet {
 				if (_log.isWarnEnabled()) {
 					_log.warn(
 						"User id is not provided. An exception will be " +
-							"thrown  if a protected method is accessed.");
+							"thrown if a protected method is accessed.");
 				}
 			}
 

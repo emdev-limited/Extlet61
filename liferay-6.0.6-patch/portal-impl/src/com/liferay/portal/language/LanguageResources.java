@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2000-2010 Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -17,20 +17,19 @@ package com.liferay.portal.language;
 import com.liferay.portal.kernel.language.LanguageUtil;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.util.CharPool;
+import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.PropertiesUtil;
 import com.liferay.portal.kernel.util.StringBundler;
 import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
-import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.tools.LangBuilder;
 
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 
 import java.net.URL;
 
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -43,14 +42,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LanguageResources {
 
 	public static String fixValue(String value) {
-		try {
-			value = new String(
-				value.getBytes(StringPool.ISO_8859_1), StringPool.UTF8);
-		}
-		catch (UnsupportedEncodingException uee) {
-			_log.error(uee, uee);
-		}
-
 		if (value.endsWith(LangBuilder.AUTOMATIC_COPY)) {
 			value = value.substring(
 				0, value.length() - LangBuilder.AUTOMATIC_COPY.length());
@@ -63,6 +54,19 @@ public class LanguageResources {
 		}
 
 		return value;
+	}
+
+	public static void fixValues(
+		Map<String, String> languageMap, Properties properties) {
+
+		for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+			String key = (String)entry.getKey();
+			String value = (String)entry.getValue();
+
+			value = fixValue(value);
+
+			languageMap.put(key, value);
+		}
 	}
 
 	public static String getMessage(Locale locale, String key) {
@@ -79,11 +83,41 @@ public class LanguageResources {
 		String value = languageMap.get(key);
 
 		if (value == null) {
-			return getMessage(_getSuperLocale(locale), key);
+			return getMessage(getSuperLocale(locale), key);
 		}
 		else {
 			return value;
 		}
+	}
+
+	public static Locale getSuperLocale(Locale locale) {
+		String variant = locale.getVariant();
+
+		if (variant.length() > 0) {
+			return new Locale(locale.getLanguage(), locale.getCountry());
+		}
+
+		String country = locale.getCountry();
+
+		if (country.length() > 0) {
+			Locale priorityLocale = LanguageUtil.getLocale(
+				locale.getLanguage());
+
+			if ((priorityLocale != null) && (!locale.equals(priorityLocale))) {
+				return new Locale(
+					priorityLocale.getLanguage(), priorityLocale.getCountry());
+			}
+
+			return LocaleUtil.fromLanguageId(locale.getLanguage());
+		}
+
+		String language = locale.getLanguage();
+
+		if (language.length() > 0) {
+			return _blankLocale;
+		}
+
+		return null;
 	}
 
 	public static Map<String, String> putLanguageMap(
@@ -110,48 +144,19 @@ public class LanguageResources {
 	}
 
 	public void setConfig(String config) {
-		_config = config;
-	}
-
-	private static Locale _getSuperLocale(Locale locale) {
-		if (Validator.isNotNull(locale.getVariant())) {
-			return new Locale(locale.getLanguage(), locale.getCountry());
-		}
-
-		if (Validator.isNotNull(locale.getCountry())) {
-			if (LanguageUtil.isDuplicateLanguageCode(locale.getLanguage())) {
-				Locale priorityLocale = LanguageUtil.getLocale(
-					locale.getLanguage());
-
-				if (!locale.equals(priorityLocale)) {
-					return new Locale(
-						priorityLocale.getLanguage(),
-						priorityLocale.getCountry());
-				}
-			}
-
-			return new Locale(locale.getLanguage());
-		}
-
-		if (Validator.isNotNull(locale.getLanguage())) {
-			return new Locale(StringPool.BLANK);
-		}
-
-		return null;
+		_configNames = StringUtil.split(
+			config.replace(CharPool.PERIOD, CharPool.SLASH));
 	}
 
 	private static Map<String, String> _loadLocale(Locale locale) {
-		String[] names = StringUtil.split(
-			_config.replace(StringPool.PERIOD, StringPool.SLASH));
-
 		Map<String, String> languageMap = null;
 
-		if (names.length > 0) {
+		if (_configNames.length > 0) {
 			String localeName = locale.toString();
 
 			languageMap = new HashMap<String, String>();
 
-			for (String name : names) {
+			for (String name : _configNames) {
 				StringBundler sb = new StringBundler(4);
 
 				sb.append(name);
@@ -165,18 +170,11 @@ public class LanguageResources {
 
 				Properties properties = _loadProperties(sb.toString());
 
-				for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-					String key = (String)entry.getKey();
-					String value = (String)entry.getValue();
-
-					value = fixValue(value);
-
-					languageMap.put(key, value);
-				}
+				fixValues(languageMap, properties);
 			}
 		}
 		else {
-			languageMap = Collections.EMPTY_MAP;
+			languageMap = Collections.emptyMap();
 		}
 
 		_languageMaps.put(locale, languageMap);
@@ -190,29 +188,23 @@ public class LanguageResources {
 		try {
 			ClassLoader classLoader = LanguageResources.class.getClassLoader();
 
-			Enumeration<URL> urls = classLoader.getResources(name);
-			if (_log.isDebugEnabled() && !urls.hasMoreElements()) {
-				_log.debug("No " + name + " has been found");
+			URL url = classLoader.getResource(name);
+
+			if (_log.isInfoEnabled()) {
+				_log.info("Attempting to load " + name);
 			}
-			while (urls.hasMoreElements()) {
-				URL url = urls.nextElement();
+
+			if (url != null) {
+				InputStream inputStream = url.openStream();
+
+				properties = PropertiesUtil.load(inputStream, StringPool.UTF8);
+
+				inputStream.close();
 
 				if (_log.isInfoEnabled()) {
-					_log.info("Attempting to load " + name);
-				}
-
-				if (url != null) {
-					InputStream inputStream = url.openStream();
-
-					properties.load(inputStream);
-
-					inputStream.close();
-
-					if (_log.isInfoEnabled()) {
-						_log.info(
-							"Loading " + url + " with " + properties.size() +
-								" values");
-					}
+					_log.info(
+						"Loading " + url + " with " + properties.size() +
+							" values");
 				}
 			}
 		}
@@ -227,7 +219,8 @@ public class LanguageResources {
 
 	private static Log _log = LogFactoryUtil.getLog(LanguageResources.class);
 
-	private static String _config;
+	private static Locale _blankLocale = new Locale(StringPool.BLANK);
+	private static String[] _configNames;
 	private static Map<Locale, Map<String, String>> _languageMaps =
 		new ConcurrentHashMap<Locale, Map<String, String>>(64);
 

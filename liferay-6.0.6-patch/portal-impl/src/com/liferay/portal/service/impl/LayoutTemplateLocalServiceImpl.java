@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2000-2011 Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -40,11 +40,8 @@ import com.liferay.portal.util.PropsValues;
 import com.liferay.portlet.layoutconfiguration.util.velocity.InitColumnProcessor;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -53,8 +50,6 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.servlet.ServletContext;
-import org.apache.commons.io.IOUtils;
-import org.springframework.core.io.UrlResource;
 
 /**
  * @author Ivica Cardic
@@ -152,11 +147,8 @@ public class LayoutTemplateLocalServiceImpl
 			new ArrayList<LayoutTemplate>(
 							_portalCustom.size() + _warCustom.size());
 
-		customLayoutTemplates.addAll(
-			ListUtil.fromCollection(_portalCustom.values()));
-
-		customLayoutTemplates.addAll(
-			ListUtil.fromCollection(_warCustom.values()));
+		customLayoutTemplates.addAll(ListUtil.fromMapValues(_portalCustom));
+		customLayoutTemplates.addAll(ListUtil.fromMapValues(_warCustom));
 
 		return customLayoutTemplates;
 	}
@@ -178,14 +170,22 @@ public class LayoutTemplateLocalServiceImpl
 			String layoutTemplateId = entry.getKey();
 			LayoutTemplate layoutTemplate = entry.getValue();
 
-			if (_themesCustom.containsKey(layoutTemplateId)) {
-				customLayoutTemplates.add(_themesCustom.get(layoutTemplateId));
-			}
-			else if (_warCustom.containsKey(layoutTemplateId)) {
-				customLayoutTemplates.add(_warCustom.get(layoutTemplateId));
+			LayoutTemplate themeCustomLayoutTemplate = _themesCustom.get(
+				layoutTemplateId);
+
+			if (themeCustomLayoutTemplate != null) {
+				customLayoutTemplates.add(themeCustomLayoutTemplate);
 			}
 			else {
-				customLayoutTemplates.add(layoutTemplate);
+				LayoutTemplate warCustomLayoutTemplate = _warCustom.get(
+					layoutTemplateId);
+
+				if (warCustomLayoutTemplate != null) {
+					customLayoutTemplates.add(warCustomLayoutTemplate);
+				}
+				else {
+					customLayoutTemplates.add(layoutTemplate);
+				}
 			}
 		}
 
@@ -290,51 +290,6 @@ public class LayoutTemplateLocalServiceImpl
 					if (!layoutTemplateIds.contains(ovp)) {
 						layoutTemplateIds.add(ovp);
 					}
-				}
-			}
-
-			Set<ObjectValuePair<String, Boolean>> curLayoutTemplateIds =
-				new HashSet<ObjectValuePair<String, Boolean>>();
-
-			ClassLoader classLoader = getClass().getClassLoader();
-			// load xmls
-			String resourceName = "WEB-INF/liferay-layout-templates-ext.xml";
-			Enumeration<URL> resources = classLoader.getResources(resourceName);
-			if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
-				_log.debug("No " + resourceName + " has been found");
-			}
-			while (resources.hasMoreElements()) {
-				URL resource = resources.nextElement();
-				if (_log.isDebugEnabled()) {
-					_log.debug("Loading " + resourceName + " from: " + resource);
-				}
-
-				if (resource == null) {
-					continue;
-				}
-
-				InputStream is = new UrlResource(resource).getInputStream();
-				try {
-					String xmlExt = IOUtils.toString(is, "UTF-8");
-					curLayoutTemplateIds.addAll(
-						_readLayoutTemplates(
-							servletContextName, servletContext, xmlExt,
-							pluginPackage));
-				} catch (Exception e) {
-					_log.error("Problem while loading file " + resource, e);
-				} finally {
-					is.close();
-				}
-			}
-
-			Iterator<ObjectValuePair<String, Boolean>> itr =
-				curLayoutTemplateIds.iterator();
-
-			while (itr.hasNext()) {
-				ObjectValuePair<String, Boolean> ovp = itr.next();
-
-				if (!layoutTemplateIds.contains(ovp)) {
-					layoutTemplateIds.add(ovp);
 				}
 			}
 		}
@@ -626,7 +581,7 @@ public class LayoutTemplateLocalServiceImpl
 	}
 
 	private Map<String, LayoutTemplate> _getThemesCustom(String themeId) {
-		String key = themeId + LayoutTemplateConstants.CUSTOM_SEPARATOR;
+		String key = themeId.concat(LayoutTemplateConstants.CUSTOM_SEPARATOR);
 
 		Map<String, LayoutTemplate> layoutTemplates = _themes.get(key);
 

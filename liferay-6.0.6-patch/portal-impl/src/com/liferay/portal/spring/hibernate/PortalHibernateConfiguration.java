@@ -1,5 +1,5 @@
 /**
- * Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,23 +27,38 @@ import com.liferay.portal.util.PropsUtil;
 import com.liferay.portal.util.PropsValues;
 
 import java.io.InputStream;
-import java.net.URL;
-import java.util.Enumeration;
 
 import java.util.Map;
 import java.util.Properties;
 
+import javassist.util.proxy.ProxyFactory;
+
+import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 
-import org.springframework.core.io.UrlResource;
 import org.springframework.orm.hibernate3.LocalSessionFactoryBean;
 
 /**
  * @author Brian Wing Shun Chan
  * @author Marcellus Tavares
+ * @author Shuyang Zhou
  */
 public class PortalHibernateConfiguration extends LocalSessionFactoryBean {
+
+	@Override
+	public SessionFactory buildSessionFactory() throws Exception {
+		ProxyFactory.classLoaderProvider =
+			new ProxyFactory.ClassLoaderProvider() {
+
+				public ClassLoader get(ProxyFactory proxyFactory) {
+					return Thread.currentThread().getContextClassLoader();
+				}
+
+			};
+
+		return super.buildSessionFactory();
+	}
 
 	public void setHibernateConfigurationConverter(
 		Converter<String> hibernateConfigurationConverter) {
@@ -63,6 +78,7 @@ public class PortalHibernateConfiguration extends LocalSessionFactoryBean {
 		return PropsUtil.getArray(PropsKeys.HIBERNATE_CONFIGS);
 	}
 
+	@Override
 	protected Configuration newConfiguration() {
 		Configuration configuration = new Configuration();
 
@@ -90,7 +106,9 @@ public class PortalHibernateConfiguration extends LocalSessionFactoryBean {
 
 			DB db = DBFactoryUtil.getDB();
 
-			if (db.getType().equals(DB.TYPE_HYPERSONIC)) {
+			String dbType = db.getType();
+
+			if (dbType.equals(DB.TYPE_HYPERSONIC)) {
 				//configuration.setProperty("hibernate.jdbc.batch_size", "0");
 			}
 		}
@@ -114,6 +132,7 @@ public class PortalHibernateConfiguration extends LocalSessionFactoryBean {
 		return configuration;
 	}
 
+	@Override
 	protected void postProcessConfiguration(Configuration configuration) {
 
 		// Make sure that the Hibernate settings from PropsUtil are set. See the
@@ -135,42 +154,7 @@ public class PortalHibernateConfiguration extends LocalSessionFactoryBean {
 
 		ClassLoader classLoader = getConfigurationClassLoader();
 
-		if(!resource.startsWith("classpath*:")){
-			InputStream is = classLoader.getResourceAsStream(resource);
-			readResource(configuration, resource, is);
-		} else {
-			String resourceName = resource.substring("classpath*:".length());
-			try {
-				Enumeration<URL> resources = 
-					classLoader.getResources(resourceName);
-					if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
-						_log.debug("No " + resourceName + " has been found");
-					}
-				while (resources.hasMoreElements()) {
-					URL resourceFullName = resources.nextElement();
-					try {
-						InputStream is = new UrlResource(resourceFullName).getInputStream();
-						readResource(configuration, resource, is);
-					}
-					catch (Exception e2) {
-						if (_log.isWarnEnabled()) {
-							_log.warn("Problem while loading " + resource, e2);
-						}
-					}
-				}
-			}
-			catch (Exception e2) {
-				if (_log.isWarnEnabled()) {
-					_log.warn("Problem while loading classLoader resources: " 
-						+ resourceName, e2);
-				}
-			}
-		}
-
-	}
-
-	protected void readResource(Configuration configuration, String resource, InputStream is)
-		throws Exception {
+		InputStream is = classLoader.getResourceAsStream(resource);
 
 		if (is == null) {
 			return;
@@ -184,8 +168,7 @@ public class PortalHibernateConfiguration extends LocalSessionFactoryBean {
 			configurationString = _hibernateConfigurationConverter.convert(
 				configurationString);
 
-			is = new UnsyncByteArrayInputStream(
-				configurationString.getBytes());
+			is = new UnsyncByteArrayInputStream(configurationString.getBytes());
 		}
 
 		configuration = configuration.addInputStream(is);

@@ -1,5 +1,5 @@
 /**
- * Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -15,7 +15,6 @@
 package com.liferay.portal.servlet;
 
 import com.liferay.portal.NoSuchLayoutException;
-import com.liferay.portal.deploy.hot.PluginPackageHotDeployListener;
 import com.liferay.portal.events.EventsProcessorUtil;
 import com.liferay.portal.events.StartupAction;
 import com.liferay.portal.kernel.cache.Lifecycle;
@@ -23,27 +22,27 @@ import com.liferay.portal.kernel.cache.ThreadLocalCacheManager;
 import com.liferay.portal.kernel.deploy.hot.HotDeployUtil;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
+import com.liferay.portal.kernel.language.LanguageUtil;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.plugin.PluginPackage;
-import com.liferay.portal.kernel.scheduler.SchedulerEngineUtil;
-import com.liferay.portal.kernel.scheduler.SchedulerEntry;
-import com.liferay.portal.kernel.scheduler.SchedulerEntryImpl;
-import com.liferay.portal.kernel.scheduler.TimeUnit;
-import com.liferay.portal.kernel.scheduler.TriggerType;
-import com.liferay.portal.kernel.search.IndexerRegistryUtil;
+import com.liferay.portal.kernel.servlet.PortalSessionThreadLocal;
 import com.liferay.portal.kernel.servlet.PortletSessionTracker;
 import com.liferay.portal.kernel.servlet.ProtectedServletRequest;
 import com.liferay.portal.kernel.servlet.ServletContextPool;
 import com.liferay.portal.kernel.util.ContentTypes;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.HttpUtil;
+import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.ParamUtil;
 import com.liferay.portal.kernel.util.PortalClassLoaderUtil;
 import com.liferay.portal.kernel.util.PortalLifecycleUtil;
 import com.liferay.portal.kernel.util.PropsKeys;
 import com.liferay.portal.kernel.util.ReleaseInfo;
+import com.liferay.portal.kernel.util.StringBundler;
 import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.portal.kernel.util.StringUtil;
+import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.xml.Document;
 import com.liferay.portal.kernel.xml.DocumentException;
 import com.liferay.portal.kernel.xml.Element;
@@ -57,7 +56,7 @@ import com.liferay.portal.model.PortletApp;
 import com.liferay.portal.model.PortletFilter;
 import com.liferay.portal.model.PortletURLListener;
 import com.liferay.portal.model.User;
-import com.liferay.portal.plugin.PluginPackageIndexer;
+import com.liferay.portal.plugin.PluginPackageUtil;
 import com.liferay.portal.security.auth.PrincipalException;
 import com.liferay.portal.security.auth.PrincipalThreadLocal;
 import com.liferay.portal.security.permission.ResourceActionsUtil;
@@ -70,10 +69,11 @@ import com.liferay.portal.service.ResourceActionLocalServiceUtil;
 import com.liferay.portal.service.ResourceCodeLocalServiceUtil;
 import com.liferay.portal.service.ThemeLocalServiceUtil;
 import com.liferay.portal.service.UserLocalServiceUtil;
+import com.liferay.portal.servlet.filters.absoluteredirects.AbsoluteRedirectsResponse;
 import com.liferay.portal.servlet.filters.i18n.I18nFilter;
+import com.liferay.portal.setup.SetupWizardUtil;
 import com.liferay.portal.struts.PortletRequestProcessor;
 import com.liferay.portal.struts.StrutsUtil;
-import com.liferay.portal.util.ContentUtil;
 import com.liferay.portal.util.ExtRegistry;
 import com.liferay.portal.util.MaintenanceUtil;
 import com.liferay.portal.util.Portal;
@@ -88,18 +88,16 @@ import com.liferay.portlet.PortletConfigFactoryUtil;
 import com.liferay.portlet.PortletFilterFactory;
 import com.liferay.portlet.PortletInstanceFactoryUtil;
 import com.liferay.portlet.PortletURLListenerFactory;
-import com.liferay.portlet.social.messaging.CheckEquityLogMessageListener;
+import com.liferay.portlet.social.util.SocialConfigurationUtil;
+import com.liferay.util.ContentUtil;
 import com.liferay.util.servlet.DynamicServletRequest;
 import com.liferay.util.servlet.EncryptedServletRequest;
 
 import java.io.IOException;
-import java.io.InputStream;
-
-import java.net.URL;
-import java.util.Enumeration;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import javax.portlet.PortletConfig;
@@ -109,13 +107,11 @@ import javax.portlet.PortletException;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.UnavailableException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import javax.servlet.jsp.PageContext;
-
-import org.apache.commons.digester.Digester;
 
 import org.apache.struts.Globals;
 import org.apache.struts.action.ActionServlet;
@@ -124,8 +120,6 @@ import org.apache.struts.config.ControllerConfig;
 import org.apache.struts.config.ModuleConfig;
 import org.apache.struts.tiles.TilesUtilImpl;
 
-import org.springframework.core.io.UrlResource;
-import org.xml.sax.InputSource;
 /**
  * @author Brian Wing Shun Chan
  * @author Jorge Ferrer
@@ -133,6 +127,7 @@ import org.xml.sax.InputSource;
  */
 public class MainServlet extends ActionServlet {
 
+	@Override
 	public void destroy() {
 		if (_log.isDebugEnabled()) {
 			_log.debug("Destroy plugins");
@@ -141,17 +136,6 @@ public class MainServlet extends ActionServlet {
 		PortalLifecycleUtil.flushDestroys();
 
 		List<Portlet> portlets = PortletLocalServiceUtil.getPortlets();
-
-		if (_log.isDebugEnabled()) {
-			_log.debug("Destroy schedulers");
-		}
-
-		try {
-			destroySchedulers(portlets);
-		}
-		catch (Exception e) {
-			_log.error(e, e);
-		}
 
 		if (_log.isDebugEnabled()) {
 			_log.debug("Destroy portlets");
@@ -193,10 +177,13 @@ public class MainServlet extends ActionServlet {
 		callParentDestroy();
 	}
 
+	@Override
 	public void init() throws ServletException {
 		if (_log.isDebugEnabled()) {
 			_log.debug("Initialize");
 		}
+
+		ServletContext servletContext = getServletContext();
 
 		callParentInit();
 
@@ -265,22 +252,22 @@ public class MainServlet extends ActionServlet {
 		}
 
 		if (_log.isDebugEnabled()) {
-			_log.debug("Initialize themes");
+			_log.debug("Initialize social");
 		}
 
 		try {
-			initThemes(pluginPackage, portlets);
+			initSocial(pluginPackage);
 		}
 		catch (Exception e) {
 			_log.error(e, e);
 		}
 
 		if (_log.isDebugEnabled()) {
-			_log.debug("Initialize social log scheduler");
+			_log.debug("Initialize themes");
 		}
 
 		try {
-			initSocialEquityLogScheduler();
+			initThemes(pluginPackage, portlets);
 		}
 		catch (Exception e) {
 			_log.error(e, e);
@@ -353,10 +340,6 @@ public class MainServlet extends ActionServlet {
 		}
 
 		if (_log.isDebugEnabled()) {
-			_log.debug("Initialize message resources");
-		}
-
-		if (_log.isDebugEnabled()) {
 			_log.debug("Initialize plugins");
 		}
 
@@ -366,70 +349,11 @@ public class MainServlet extends ActionServlet {
 		catch (Exception e) {
 			_log.error(e, e);
 		}
-	}
 
-
-	@Override
-	protected void initOther() throws ServletException {
-		super.initOther();
-
-		StringBuilder sb = new StringBuilder(super.config);
-
-		ClassLoader portalClassLoader = com.liferay.portal.kernel.util.PortalClassLoaderUtil.getClassLoader();
-		try {
-			String resourceName = "WEB-INF/struts-config-ext.xml";
-			Enumeration<URL> urls = portalClassLoader.getResources(resourceName);
-			if (_log.isDebugEnabled() && !urls.hasMoreElements()) {
-				_log.debug("No " + resourceName + " has been found");
-			}
-			while (urls.hasMoreElements()) {
-				URL url = urls.nextElement();
-				if (_log.isDebugEnabled()) {
-					_log.debug("Loading " + resourceName + " from " + url);
-				}
-				sb.append(",\u2604" + url.toString().replaceAll(",", "\u2615")); // path should not contain ','
-			}
-		} catch (IOException ex) {
-			_log.error("Problem with loading struts config files: " + ex.getMessage(), ex);
-		}
-
-		super.config = sb.toString();
+		servletContext.setAttribute(WebKeys.STARTUP_FINISHED, true);
 	}
 
 	@Override
-	protected void parseModuleConfigFile(Digester digester, String path)
-			throws UnavailableException {
-
-		if (!path.contains("\u2604")) {
-			super.parseModuleConfigFile(digester, path);
-			return;
-		}
-
-		try {
-			URL url = new URL(path.substring("\u2604".length()).replaceAll("\u2615", ",")); // replace back the ',' character
-
-			InputStream is = new UrlResource(url).getInputStream();
-			try {
-				InputSource xmlStream = new InputSource(url.toExternalForm());
-				xmlStream.setByteStream(is);
-				digester.parse(is);
-			} catch (Exception e) {
-				_log.error("Cannot load Ext struts config file: " + url, e);
-			} finally {
-				if (is != null) {
-					try {
-						is.close();
-					} catch (IOException e) {
-						_log.error("Cannot close stream to the struts config file: " + url, e);
-					}
-				}
-			}
-		} catch (Exception e) {
-			_log.error("Cannot load Ext Struts config files: " + e.getMessage(), e);
-		}
-
-	}
-
 	public void service(
 			HttpServletRequest request, HttpServletResponse response)
 		throws IOException, ServletException {
@@ -460,6 +384,27 @@ public class MainServlet extends ActionServlet {
 
 		long companyId = getCompanyId(request);
 
+		if (processCompanyInactiveRequest(request, response, companyId)) {
+			if (_log.isDebugEnabled()) {
+				_log.debug("Processed company inactive request");
+			}
+
+			return;
+		}
+
+		try {
+			if (processGroupInactiveRequest(request, response)) {
+				if (_log.isDebugEnabled()) {
+					_log.debug("Processed site inactive request");
+				}
+
+				return;
+			}
+		}
+		catch (Exception e) {
+			_log.error(e, e);
+		}
+
 		if (_log.isDebugEnabled()) {
 			_log.debug("Set portal port");
 		}
@@ -482,6 +427,7 @@ public class MainServlet extends ActionServlet {
 		request = encryptRequest(request, companyId);
 
 		long userId = getUserId(request);
+
 		String remoteUser = getRemoteUser(request, userId);
 
 		if (_log.isDebugEnabled()) {
@@ -494,13 +440,15 @@ public class MainServlet extends ActionServlet {
 			_log.debug("Set principal");
 		}
 
-		setPrincipalName(userId, remoteUser);
+		String password = getPassword(request);
+
+		setPrincipal(userId, remoteUser, password);
 
 		try {
 			if (_log.isDebugEnabled()) {
 				_log.debug(
-				"Authenticate user id " + userId + " and remote user " +
-					remoteUser);
+					"Authenticate user id " + userId + " and remote user " +
+						remoteUser);
 			}
 
 			userId = loginUser(request, response, userId, remoteUser);
@@ -512,6 +460,12 @@ public class MainServlet extends ActionServlet {
 		catch (Exception e) {
 			_log.error(e, e);
 		}
+
+		if (_log.isDebugEnabled()) {
+			_log.debug("Set session thread local");
+		}
+
+		PortalSessionThreadLocal.setHttpSession(request.getSession());
 
 		if (_log.isDebugEnabled()) {
 			_log.debug("Process service pre events");
@@ -615,6 +569,10 @@ public class MainServlet extends ActionServlet {
 		ServletContext servletContext = getServletContext();
 
 		request.setAttribute(WebKeys.CTX, servletContext);
+
+		String contextPath = request.getContextPath();
+
+		servletContext.setAttribute(WebKeys.CTX_PATH, contextPath);
 	}
 
 	protected void checkTilesDefinitionsFactory() {
@@ -689,29 +647,6 @@ public class MainServlet extends ActionServlet {
 		}
 	}
 
-	protected void destroySchedulers(List<Portlet> portlets) throws Exception {
-		if (!PropsValues.SCHEDULER_ENABLED) {
-			return;
-		}
-
-		for (Portlet portlet : portlets) {
-			if (!portlet.isActive()) {
-				continue;
-			}
-
-			List<SchedulerEntry> schedulerEntries =
-				portlet.getSchedulerEntries();
-
-			if ((schedulerEntries == null) || schedulerEntries.isEmpty()) {
-				continue;
-			}
-
-			for (SchedulerEntry schedulerEntry : schedulerEntries) {
-				SchedulerEngineUtil.unschedule(schedulerEntry);
-			}
-		}
-	}
-
 	protected HttpServletRequest encryptRequest(
 		HttpServletRequest request, long companyId) {
 
@@ -722,11 +657,9 @@ public class MainServlet extends ActionServlet {
 		}
 
 		try {
-			Company company = CompanyLocalServiceUtil.getCompanyById(
-				companyId);
+			Company company = CompanyLocalServiceUtil.getCompanyById(companyId);
 
-			request = new EncryptedServletRequest(
-				request, company.getKeyObj());
+			request = new EncryptedServletRequest(request, company.getKeyObj());
 		}
 		catch (Exception e) {
 		}
@@ -738,9 +671,11 @@ public class MainServlet extends ActionServlet {
 		return PortalInstances.getCompanyId(request);
 	}
 
-	protected String getRemoteUser(
-		HttpServletRequest request, long userId) {
+	protected String getPassword(HttpServletRequest request) {
+		return PortalUtil.getUserPassword(request);
+	}
 
+	protected String getRemoteUser(HttpServletRequest request, long userId) {
 		String remoteUser = request.getRemoteUser();
 
 		if (!PropsValues.PORTAL_JAAS_ENABLE) {
@@ -762,6 +697,7 @@ public class MainServlet extends ActionServlet {
 		return remoteUser;
 	}
 
+	@Override
 	protected synchronized RequestProcessor getRequestProcessor(
 			ModuleConfig moduleConfig)
 		throws ServletException {
@@ -770,10 +706,10 @@ public class MainServlet extends ActionServlet {
 
 		String key = Globals.REQUEST_PROCESSOR_KEY + moduleConfig.getPrefix();
 
-		RequestProcessor processor =
+		RequestProcessor requestProcessor =
 			(RequestProcessor)servletContext.getAttribute(key);
 
-		if (processor == null) {
+		if (requestProcessor == null) {
 			ControllerConfig controllerConfig =
 				moduleConfig.getControllerConfig();
 
@@ -782,19 +718,19 @@ public class MainServlet extends ActionServlet {
 			ClassLoader classLoader = PortalClassLoaderUtil.getClassLoader();
 
 			try {
-				processor = (RequestProcessor)classLoader.loadClass(
+				requestProcessor = (RequestProcessor)classLoader.loadClass(
 					processorClass).newInstance();
 			}
 			catch (Exception e) {
 				throw new ServletException(e);
 			}
 
-			processor.init(this, moduleConfig);
+			requestProcessor.init(this, moduleConfig);
 
-			servletContext.setAttribute(key, processor);
+			servletContext.setAttribute(key, requestProcessor);
 		}
 
-		return processor;
+		return requestProcessor;
 	}
 
 	protected long getUserId(HttpServletRequest request) {
@@ -859,19 +795,23 @@ public class MainServlet extends ActionServlet {
 	protected PluginPackage initPluginPackage() throws Exception {
 		ServletContext servletContext = getServletContext();
 
-		IndexerRegistryUtil.register(new PluginPackageIndexer());
-
-		return PluginPackageHotDeployListener.readPluginPackage(servletContext);
+		return PluginPackageUtil.readPluginPackageServletContext(
+			servletContext);
 	}
 
+	/**
+	 * @see {@link SetupWizardUtil#_initPlugins}
+	 */
 	protected void initPlugins() throws Exception {
 
 		// See LEP-2885. Don't flush hot deploy events until after the portal
 		// has initialized.
 
-		HotDeployUtil.setCapturePrematureEvents(false);
+		if (SetupWizardUtil.isSetupFinished()) {
+			HotDeployUtil.setCapturePrematureEvents(false);
 
-		PortalLifecycleUtil.flushInits();
+			PortalLifecycleUtil.flushInits();
+		}
 	}
 
 	protected void initPortletApp(
@@ -945,14 +885,32 @@ public class MainServlet extends ActionServlet {
 	protected void initResourceActions(List<Portlet> portlets)
 		throws Exception {
 
+		if (PropsValues.PERMISSIONS_USER_CHECK_ALGORITHM < 6) {
+			if (_log.isWarnEnabled()) {
+				StringBundler sb = new StringBundler(8);
+
+				sb.append("Liferay is configured to use permission algorithm ");
+				sb.append(PropsValues.PERMISSIONS_USER_CHECK_ALGORITHM);
+				sb.append(". Versions after 6.1 will only support algorithm ");
+				sb.append("6 and above. Please sign in as an administrator, ");
+				sb.append("go to the Control Panel, select \"Server ");
+				sb.append("Administration\", select the \"Data Migration\" ");
+				sb.append("tab, and convert from this legacy permission ");
+				sb.append("algorithm as soon as possible.");
+
+				_log.warn(sb.toString());
+			}
+
+			return;
+		}
+
 		Iterator<Portlet> itr = portlets.iterator();
 
 		while (itr.hasNext()) {
 			Portlet portlet = itr.next();
 
 			List<String> portletActions =
-				ResourceActionsUtil.getPortletResourceActions(
-					portlet.getPortletId());
+				ResourceActionsUtil.getPortletResourceActions(portlet);
 
 			ResourceActionLocalServiceUtil.checkResourceActions(
 				portlet.getPortletId(), portletActions);
@@ -1003,18 +961,19 @@ public class MainServlet extends ActionServlet {
 		ServletContextPool.put(contextPath, servletContext);
 	}
 
-	protected void initSocialEquityLogScheduler() throws Exception {
-		SchedulerEntry schedulerEntry = new SchedulerEntryImpl();
+	protected void initSocial(PluginPackage pluginPackage) throws Exception {
+		ClassLoader classLoader = PortalClassLoaderUtil.getClassLoader();
 
-		schedulerEntry.setEventListenerClass(
-			CheckEquityLogMessageListener.class.getName());
-		schedulerEntry.setTimeUnit(TimeUnit.MINUTE);
-		schedulerEntry.setTriggerType(TriggerType.SIMPLE);
-		schedulerEntry.setTriggerValue(
-			PropsValues.SOCIAL_EQUITY_EQUITY_LOG_CHECK_INTERVAL);
+		ServletContext servletContext = getServletContext();
 
-		SchedulerEngineUtil.schedule(
-			schedulerEntry, PortalClassLoaderUtil.getClassLoader());
+		String[] xmls = new String[] {
+			HttpUtil.URLtoString(
+				servletContext.getResource("/WEB-INF/liferay-social.xml")),
+			HttpUtil.URLtoString(
+				servletContext.getResource("/WEB-INF/liferay-social-ext.xml"))
+		};
+
+		SocialConfigurationUtil.read(classLoader, xmls);
 	}
 
 	protected void initThemes(
@@ -1069,6 +1028,7 @@ public class MainServlet extends ActionServlet {
 
 		HttpSession session = request.getSession();
 
+		session.setAttribute(WebKeys.USER, user);
 		session.setAttribute(WebKeys.USER_ID, new Long(userId));
 		session.setAttribute(Globals.LOCALE_KEY, user.getLocale());
 
@@ -1077,6 +1037,47 @@ public class MainServlet extends ActionServlet {
 			request, response);
 
 		return userId;
+	}
+
+	protected boolean processCompanyInactiveRequest(
+			HttpServletRequest request, HttpServletResponse response,
+			long companyId)
+		throws IOException {
+
+		if (PortalInstances.isCompanyActive(companyId)) {
+			return false;
+		}
+
+		processInactiveRequest(
+			request, response,
+			"this-instance-is-inactive-please-contact-the-administrator");
+
+		return true;
+	}
+
+	protected boolean processGroupInactiveRequest(
+			HttpServletRequest request, HttpServletResponse response)
+		throws IOException, PortalException, SystemException {
+
+		long plid = ParamUtil.getLong(request, "p_l_id");
+
+		if (plid <= 0) {
+			return false;
+		}
+
+		Layout layout = LayoutLocalServiceUtil.getLayout(plid);
+
+		Group group = layout.getGroup();
+
+		if (group.isActive()) {
+			return false;
+		}
+
+		processInactiveRequest(
+			request, response,
+			"this-site-is-inactive-please-contact-the-administrator");
+
+		return true;
 	}
 
 	protected void processGlobalShutdownEvents() throws Exception {
@@ -1090,6 +1091,27 @@ public class MainServlet extends ActionServlet {
 	protected void processGlobalStartupEvents() throws Exception {
 		EventsProcessorUtil.process(
 			PropsKeys.GLOBAL_STARTUP_EVENTS, PropsValues.GLOBAL_STARTUP_EVENTS);
+	}
+
+	protected void processInactiveRequest(
+			HttpServletRequest request, HttpServletResponse response,
+			String messageKey)
+		throws IOException {
+
+		response.setContentType(ContentTypes.TEXT_HTML_UTF8);
+
+		Locale locale = LocaleUtil.getDefault();
+
+		String message = LanguageUtil.get(locale, messageKey);
+
+		String html = ContentUtil.get(
+			"com/liferay/portal/dependencies/inactive.html");
+
+		html = StringUtil.replace(html, "[$MESSAGE$]", message);
+
+		ServletOutputStream servletOutputStream = response.getOutputStream();
+
+		servletOutputStream.print(html);
 	}
 
 	protected boolean processMaintenanceRequest(
@@ -1120,8 +1142,16 @@ public class MainServlet extends ActionServlet {
 			_log.error(e, e);
 		}
 
-		response.addHeader(
-			_LIFERAY_PORTAL_REQUEST_HEADER, ReleaseInfo.getReleaseInfo());
+		if (_HTTP_HEADER_VERSION_VERBOSITY_DEFAULT) {
+		}
+		else if (_HTTP_HEADER_VERSION_VERBOSITY_PARTIAL) {
+			response.addHeader(
+				_LIFERAY_PORTAL_REQUEST_HEADER, ReleaseInfo.getName());
+		}
+		else {
+			response.addHeader(
+				_LIFERAY_PORTAL_REQUEST_HEADER, ReleaseInfo.getReleaseInfo());
+		}
 
 		ThreadLocalCacheManager.clearAll(Lifecycle.REQUEST);
 	}
@@ -1180,8 +1210,7 @@ public class MainServlet extends ActionServlet {
 			return;
 		}
 
-		String redirect =
-			request.getContextPath() + Portal.PATH_MAIN + "/portal/login";
+		String redirect = PortalUtil.getPathMain().concat("/portal/login");
 
 		String currentURL = PortalUtil.getCurrentURL(request);
 
@@ -1221,12 +1250,13 @@ public class MainServlet extends ActionServlet {
 			return false;
 		}
 
-		response.setContentType(ContentTypes.TEXT_HTML_UTF8);
+		String messageKey = ShutdownUtil.getMessage();
 
-		String html = ContentUtil.get(
-			"com/liferay/portal/dependencies/shutdown.html");
+		if (Validator.isNull(messageKey)) {
+			messageKey = "the-system-is-shutdown-please-try-again-later";
+		}
 
-		response.getOutputStream().print(html);
+		processInactiveRequest(request, response, messageKey);
 
 		return true;
 	}
@@ -1257,9 +1287,13 @@ public class MainServlet extends ActionServlet {
 		DynamicServletRequest dynamicRequest = new DynamicServletRequest(
 			request);
 
-		// Reset p_l_id or there will be an infinite loop
+		// Reset layout params or there will be an infinite loop
 
 		dynamicRequest.setParameter("p_l_id", StringPool.BLANK);
+
+		dynamicRequest.setParameter("groupId", StringPool.BLANK);
+		dynamicRequest.setParameter("layoutId", StringPool.BLANK);
+		dynamicRequest.setParameter("privateLayout", StringPool.BLANK);
 
 		PortalUtil.sendError(status, (Exception)t, dynamicRequest, response);
 	}
@@ -1268,19 +1302,32 @@ public class MainServlet extends ActionServlet {
 		PortalUtil.setPortalPort(request);
 	}
 
-	protected void setPrincipalName(long userId, String remoteUser) {
+	protected void setPrincipal(
+		long userId, String remoteUser, String password) {
+
 		if ((userId == 0) && (remoteUser == null)) {
 			return;
 		}
 
 		String name = String.valueOf(userId);
 
-		if (remoteUser != null) {
-			name = remoteUser;
+		if (!PropsValues.PORTAL_JAAS_ENABLE) {
+			if (remoteUser != null) {
+				name = remoteUser;
+			}
 		}
 
 		PrincipalThreadLocal.setName(name);
+
+		PrincipalThreadLocal.setPassword(password);
 	}
+
+	private static final boolean _HTTP_HEADER_VERSION_VERBOSITY_DEFAULT =
+		PropsValues.HTTP_HEADER_VERSION_VERBOSITY.equalsIgnoreCase(
+			ReleaseInfo.getName());
+
+	private static final boolean _HTTP_HEADER_VERSION_VERBOSITY_PARTIAL =
+		PropsValues.HTTP_HEADER_VERSION_VERBOSITY.equalsIgnoreCase("partial");
 
 	private static final String _LIFERAY_PORTAL_REQUEST_HEADER =
 		"Liferay-Portal";

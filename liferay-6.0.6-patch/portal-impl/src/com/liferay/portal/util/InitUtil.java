@@ -1,5 +1,5 @@
 /**
- * Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -17,25 +17,26 @@ package com.liferay.portal.util;
 import com.liferay.portal.cache.CacheRegistryImpl;
 import com.liferay.portal.configuration.ConfigurationFactoryImpl;
 import com.liferay.portal.dao.db.DBFactoryImpl;
+import com.liferay.portal.dao.jdbc.DataSourceFactoryImpl;
 import com.liferay.portal.kernel.cache.CacheRegistryUtil;
 import com.liferay.portal.kernel.configuration.ConfigurationFactoryUtil;
 import com.liferay.portal.kernel.dao.db.DBFactoryUtil;
-import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.dao.jdbc.DataSourceFactoryUtil;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.JavaProps;
 import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.PortalClassLoaderUtil;
+import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.portal.kernel.util.SystemProperties;
 import com.liferay.portal.kernel.util.TimeZoneUtil;
 import com.liferay.portal.log.Log4jLogFactoryImpl;
 import com.liferay.portal.spring.util.SpringUtil;
-import com.liferay.util.SystemProperties;
 import com.liferay.util.log4j.Log4JUtil;
 
-import org.apache.commons.lang.time.StopWatch;
+import com.sun.syndication.io.XmlReader;
 
-import java.net.URL;
-import java.util.Enumeration;
+import org.apache.commons.lang.time.StopWatch;
 
 /**
  * @author Brian Wing Shun Chan
@@ -90,25 +91,7 @@ public class InitUtil {
 
 			ClassLoader classLoader = InitUtil.class.getClassLoader();
 
-			Log4JUtil.configureLog4J(
-				classLoader.getResource("META-INF/portal-log4j.xml"));
-			try {
-				Log _log = LogFactoryUtil.getLog(InitUtil.class);
-
-				String configName = "META-INF/portal-log4j-ext.xml";
-				Enumeration<URL> configs = 
-					classLoader.getResources(configName);
-				if (_log.isDebugEnabled() && !configs.hasMoreElements()) {
-					_log.debug("No " + configName + " has been found");
-				}
-				while (configs.hasMoreElements()) {
-					URL config = configs.nextElement();
-					Log4JUtil.configureLog4J(config);
-				}
-			}
-			catch (Exception e) {
-				e.printStackTrace();
-			}
+			Log4JUtil.configureLog4J(classLoader);
 		}
 
 		// Shared log
@@ -129,6 +112,10 @@ public class InitUtil {
 		ConfigurationFactoryUtil.setConfigurationFactory(
 			new ConfigurationFactoryImpl());
 
+		// Data source factory
+
+		DataSourceFactoryUtil.setDataSourceFactory(new DataSourceFactoryImpl());
+
 		// DB factory
 
 		DBFactoryUtil.setDBFactory(new DBFactoryImpl());
@@ -136,6 +123,10 @@ public class InitUtil {
 		// Java properties
 
 		JavaProps.isJDK5();
+
+		// ROME
+
+		XmlReader.setDefaultEncoding(StringPool.UTF8);
 
 		if (_PRINT_TIME) {
 			System.out.println(
@@ -146,8 +137,23 @@ public class InitUtil {
 	}
 
 	public synchronized static void initWithSpring() {
+		initWithSpring(false);
+	}
+
+	public synchronized static void initWithSpring(boolean force) {
+		if (force) {
+			_initialized = false;
+		}
+
 		if (_initialized) {
 			return;
+		}
+
+		if (!_neverInitialized) {
+			PropsUtil.reload();
+		}
+		else {
+			_neverInitialized = false;
 		}
 
 		init();
@@ -160,5 +166,6 @@ public class InitUtil {
 	private static final boolean _PRINT_TIME = false;
 
 	private static boolean _initialized;
+	private static boolean _neverInitialized = true;
 
 }

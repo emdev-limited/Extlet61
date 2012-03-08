@@ -1,5 +1,5 @@
 /**
- * Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -19,29 +19,30 @@ import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.ListUtil;
 import com.liferay.portal.kernel.util.PropsKeys;
+import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Tuple;
+import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.xml.Document;
 import com.liferay.portal.kernel.xml.Element;
 import com.liferay.portal.kernel.xml.SAXReader;
 import com.liferay.portal.service.ClassNameLocalServiceUtil;
 import com.liferay.portal.util.PropsUtil;
+import com.liferay.util.PwdGenerator;
 
 import java.io.InputStream;
-import java.net.URL;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
-import org.springframework.core.io.UrlResource;
 /**
  * @author Brian Wing Shun Chan
  */
@@ -60,31 +61,17 @@ public class ModelHintsImpl implements ModelHints {
 				PropsUtil.get(PropsKeys.MODEL_HINTS_CONFIGS));
 
 			for (int i = 0; i < configs.length; i++) {
-				if(!configs[i].startsWith("classpath*:")){
-					read(classLoader, configs[i]);
-				} else {
-					String configName = configs[i].substring("classpath*:".length());
-					Enumeration<URL> resources = classLoader.getResources(configName);
-					if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
-						_log.debug("No " + configName + " has been found");
-					}
-					while (resources.hasMoreElements()) {
-						URL resource = resources.nextElement();
-						if(_log.isDebugEnabled()){
-							_log.debug("Loading "+configName+" from: " + resource);
-						}
-						InputStream is = new UrlResource(resource).getInputStream();
-
-						if (is != null) {
-							read(classLoader, resource.toString(), is);
-						}
-					}
-				}
+				read(classLoader, configs[i]);
 			}
 		}
 		catch (Exception e) {
 			_log.error(e, e);
 		}
+	}
+
+	public String buildCustomValidatorName(String validatorName) {
+		return validatorName.concat(StringPool.UNDERLINE).concat(
+			PwdGenerator.getPassword(PwdGenerator.KEY3, 4));
 	}
 
 	public Map<String, String> getDefaultHints(String model) {
@@ -94,8 +81,8 @@ public class ModelHintsImpl implements ModelHints {
 	public com.liferay.portal.kernel.xml.Element getFieldsEl(
 		String model, String field) {
 
-		Map<String, Object> fields =
-			(Map<String, Object>)_modelFields.get(model);
+		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
+			model);
 
 		if (fields == null) {
 			return null;
@@ -145,7 +132,7 @@ public class ModelHintsImpl implements ModelHints {
 			model);
 
 		if (fields == null) {
-			return Collections.EMPTY_LIST;
+			return Collections.emptyList();
 		}
 		else {
 			List<Tuple> sanitizeTuples = new ArrayList<Tuple>();
@@ -165,8 +152,8 @@ public class ModelHintsImpl implements ModelHints {
 	}
 
 	public String getType(String model, String field) {
-		Map<String, Object> fields =
-			(Map<String, Object>)_modelFields.get(model);
+		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
+			model);
 
 		if (fields == null) {
 			return null;
@@ -174,6 +161,28 @@ public class ModelHintsImpl implements ModelHints {
 		else {
 			return (String)fields.get(field + _TYPE_SUFFIX);
 		}
+	}
+
+	public List<Tuple> getValidators(String model, String field) {
+		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
+			model);
+
+		if ((fields == null) ||
+			(fields.get(field + _VALIDATORS_SUFFIX) == null)) {
+
+			return null;
+		}
+		else {
+			return (List<Tuple>)fields.get(field + _VALIDATORS_SUFFIX);
+		}
+	}
+
+	public boolean isCustomValidator(String validatorName) {
+		if (validatorName.equals("custom")) {
+			return true;
+		}
+
+		return false;
 	}
 
 	public boolean isLocalized(String model, String field) {
@@ -197,10 +206,7 @@ public class ModelHintsImpl implements ModelHints {
 	}
 
 	public void read(ClassLoader classLoader, String source) throws Exception {
-		read(classLoader, source, classLoader.getResourceAsStream(source));
-	}
-
-	public void read(ClassLoader classLoader, String source, InputStream is) throws Exception {
+		InputStream is = classLoader.getResourceAsStream(source);
 
 		if (is == null) {
 			if (_log.isWarnEnabled()) {
@@ -276,8 +282,8 @@ public class ModelHintsImpl implements ModelHints {
 				}
 			}
 
-			Map<String, Object> fields =
-				(Map<String, Object>)_modelFields.get(name);
+			Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
+				name);
 
 			if (fields == null) {
 				fields = new LinkedHashMap<String, Object>();
@@ -336,6 +342,37 @@ public class ModelHintsImpl implements ModelHints {
 					fieldSanitize = new Tuple(fieldName, contentType, modes);
 				}
 
+				Map<String, Tuple> fieldValidators =
+					new TreeMap<String, Tuple>();
+
+				itr3 = field.elements("validator").iterator();
+
+				while (itr3.hasNext()) {
+					Element validator = itr3.next();
+
+					String validatorName = validator.attributeValue("name");
+
+					if (Validator.isNull(validatorName)) {
+						continue;
+					}
+
+					String validatorErrorMessage = GetterUtil.getString(
+						validator.attributeValue("error-message"));
+					String validatorValue = GetterUtil.getString(
+						validator.getText());
+					boolean customValidator = isCustomValidator(validatorName);
+
+					if (customValidator) {
+						validatorName = buildCustomValidatorName(validatorName);
+					}
+
+					Tuple fieldValidator = new Tuple(
+						fieldName, validatorName, validatorErrorMessage,
+						validatorValue, customValidator);
+
+					fieldValidators.put(validatorName, fieldValidator);
+				}
+
 				fields.put(fieldName + _ELEMENTS_SUFFIX, field);
 				fields.put(fieldName + _TYPE_SUFFIX, fieldType);
 				fields.put(fieldName + _LOCALIZATION_SUFFIX, fieldLocalized);
@@ -343,6 +380,12 @@ public class ModelHintsImpl implements ModelHints {
 
 				if (fieldSanitize != null) {
 					fields.put(fieldName + _SANITIZE_SUFFIX, fieldSanitize);
+				}
+
+				if (!fieldValidators.isEmpty()) {
+					fields.put(
+						fieldName + _VALIDATORS_SUFFIX,
+						ListUtil.fromMapValues(fieldValidators));
 				}
 			}
 		}
@@ -385,6 +428,8 @@ public class ModelHintsImpl implements ModelHints {
 	private static final String _SANITIZE_SUFFIX = "_SANITIZE_SUFFIX";
 
 	private static final String _TYPE_SUFFIX = "_TYPE";
+
+	private static final String _VALIDATORS_SUFFIX = "_VALIDATORS";
 
 	private static Log _log = LogFactoryUtil.getLog(ModelHintsImpl.class);
 
