@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
-<project name="liferay-6.0.6-patch" basedir="." default="zip">
-	<property name="liferay.tomcat.install" value="/opt/liferay-portal-6.0.6/tomcat-6.0.29/" />
+<project name="liferay-6.1.0-patch" basedir="." default="zip">
+	<property name="liferay.tomcat.install" value="/Users/akakunin/Desktop/work/EmForge/liferay61/tomcat-7.0.23/" />
     <echo>${liferay.tomcat.install}</echo>
 	<path id="portal.classpath">
 		<fileset dir="${liferay.tomcat.install}/lib" includes="*.jar" />
@@ -27,7 +27,7 @@
 
 	<target name="compile" depends="init">
         <javac debug="true" debuglevel="source,lines,vars" destdir="build" 
-            source="1.5" target="1.5" encoding="UTF-8"
+            source="1.6" target="1.6" encoding="UTF-8"
             fork="false" executable="${javac.path}">
             <src path="portal-impl/src"/>
             <classpath refid="portal.classpath"/>
