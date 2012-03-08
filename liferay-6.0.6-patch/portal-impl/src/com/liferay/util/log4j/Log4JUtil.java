@@ -14,23 +14,11 @@
 
 package com.liferay.util.log4j;
 
-import com.liferay.portal.kernel.io.unsync.UnsyncByteArrayOutputStream;
-import com.liferay.portal.kernel.log.LogFactory;
-import com.liferay.portal.kernel.log.LogFactoryUtil;
-import com.liferay.portal.kernel.util.PropsKeys;
-import com.liferay.portal.kernel.util.PropsUtil;
-import com.liferay.portal.kernel.util.ServerDetector;
-import com.liferay.portal.kernel.util.StreamUtil;
-import com.liferay.portal.kernel.util.StringPool;
-import com.liferay.portal.kernel.util.StringUtil;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
-
 import java.net.URL;
-
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,10 +31,20 @@ import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
-
 import org.dom4j.Document;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
+
+import com.liferay.portal.kernel.io.unsync.UnsyncByteArrayOutputStream;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactory;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.util.PropsKeys;
+import com.liferay.portal.kernel.util.PropsUtil;
+import com.liferay.portal.kernel.util.ServerDetector;
+import com.liferay.portal.kernel.util.StreamUtil;
+import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.portal.kernel.util.StringUtil;
 
 /**
  * @author Brian Wing Shun Chan
@@ -55,8 +53,24 @@ public class Log4JUtil {
 
 	public static void configureLog4J(ClassLoader classLoader) {
 		configureLog4J(classLoader.getResource("META-INF/portal-log4j.xml"));
-		configureLog4J(
-			classLoader.getResource("META-INF/portal-log4j-ext.xml"));
+		try {
+			Log _log = LogFactoryUtil.getLog(Log4JUtil.class);
+
+			String configName = "META-INF/portal-log4j-ext.xml";
+			Enumeration<URL> configs = 
+				classLoader.getResources(configName);
+			if (_log.isDebugEnabled() && !configs.hasMoreElements()) {
+				_log.debug("No " + configName + " has been found");
+			}
+			while (configs.hasMoreElements()) {
+				URL config = configs.nextElement();
+				configureLog4J(config);
+			}
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+
 	}
 
 	public static void configureLog4J(URL url) {

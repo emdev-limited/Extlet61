@@ -14,18 +14,18 @@
 
 package com.liferay.portal.spring.context;
 
-import com.liferay.portal.kernel.log.Log;
-import com.liferay.portal.kernel.log.LogFactoryUtil;
-import com.liferay.portal.kernel.util.ListUtil;
-import com.liferay.portal.util.PropsValues;
-
 import java.io.FileNotFoundException;
-
 import java.util.List;
 
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.web.context.support.XmlWebApplicationContext;
+
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.util.ListUtil;
+import com.liferay.portal.util.PropsValues;
 
 /**
  * <p>
@@ -66,6 +66,7 @@ public class PortalApplicationContext extends XmlWebApplicationContext {
 			configLocations.remove("META-INF/jpa-spring.xml");
 		}
 
+		reader.setResourceLoader(new PathMatchingResourcePatternResolver());
 		for (String configLocation : configLocations) {
 			try {
 				reader.loadBeanDefinitions(configLocation);
