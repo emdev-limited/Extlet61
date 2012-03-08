@@ -36,5 +36,7 @@
 	<classpathentry kind="lib" path="/portal/lib/portal/spring-transaction.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/portal/spring-web-servlet.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/portal/commons-lang.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/javassist.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/rome.jar"/>
 	<classpathentry kind="output" path="portal-impl/classes"/>
 </classpath>
