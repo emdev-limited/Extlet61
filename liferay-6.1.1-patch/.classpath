@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" output="portal-impl/classes" path="portal-impl/src">
+		<attributes>
+			<attribute name="owner.project.facets" value="liferay.ext"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
+		<attributes>
+			<attribute name="owner.project.facets" value="java"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jst.server.core.container/com.liferay.ide.eclipse.server.tomcat.runtimeClasspathProvider/Liferay v6.1 CE (Tomcat 7)">
+		<attributes>
+			<attribute name="owner.project.facets" value="jst.web"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jst.j2ee.internal.web.container"/>
+	<classpathentry kind="con" path="org.eclipse.jst.j2ee.internal.module.container"/>
+	<classpathentry kind="con" path="com.liferay.ide.eclipse.server.plugin.container/ext">
+		<attributes>
+			<attribute name="org.eclipse.jst.component.nondependency" value=""/>
+		</attributes>
+	</classpathentry>
+	<classpathentry combineaccessrules="false" kind="src" path="/portal"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/commons-configuration.jar" sourcepath="/Users/akakunin/.m2/repository/commons-configuration/commons-configuration/1.6/commons-configuration-1.6-sources.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/spring-core.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/commons-io.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/commons-digester.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/struts.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/spring-beans.jar" sourcepath="/activiti-web/C:/Users/oteichmann/.m2/repository/org/springframework/spring-beans/3.0.5.RELEASE/spring-beans-3.0.5.RELEASE-sources.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/spring-web.jar" sourcepath="/activiti-web/C:/Users/oteichmann/.m2/repository/org/springframework/spring-web/3.0.5.RELEASE/spring-web-3.0.5.RELEASE-sources.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/spring-context.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/hibernate3.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/spring-orm.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/spring-transaction.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/spring-web-servlet.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/commons-lang.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/javassist.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/rome.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/log4j.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/dom4j.jar"/>
+	<classpathentry kind="output" path="portal-impl/classes"/>
+</classpath>
