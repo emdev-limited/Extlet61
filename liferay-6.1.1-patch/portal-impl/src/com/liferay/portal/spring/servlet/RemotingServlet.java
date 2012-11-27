@@ -41,7 +41,7 @@ public class RemotingServlet extends DispatcherServlet {
 		TunnelApplicationContext.class.getName();
 
 	public static final String CONTEXT_CONFIG_LOCATION =
-			"/WEB-INF/remoting-servlet.xml,classpath*:WEB-INF/remoting-servlet-ext.xml";
+		"/WEB-INF/remoting-servlet.xml,/WEB-INF/remoting-servlet-ext.xml";
 
 	@Override
 	public Class<?> getContextClass() {
@@ -82,7 +82,7 @@ public class RemotingServlet extends DispatcherServlet {
 				User user = UserLocalServiceUtil.getUserById(userId);
 
 				PermissionChecker permissionChecker =
-					PermissionCheckerFactoryUtil.create(user, true);
+					PermissionCheckerFactoryUtil.create(user);
 
 				PermissionThreadLocal.setPermissionChecker(permissionChecker);
 			}

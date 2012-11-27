@@ -40,5 +40,9 @@
 	<classpathentry kind="lib" path="/portal/lib/portal/rome.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/portal/log4j.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/portal/dom4j.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/development/servlet-api.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/portal/commons-logging.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/global/portlet.jar"/>
+	<classpathentry kind="lib" path="/portal/lib/development/jsp-api.jar"/>
 	<classpathentry kind="output" path="portal-impl/classes"/>
 </classpath>

@@ -14,24 +14,6 @@
 
 package com.liferay.portal.service.impl;
 
-import java.io.File;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.servlet.ServletContext;
-
-import org.apache.commons.io.IOUtils;
-import org.springframework.core.io.UrlResource;
-
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.image.SpriteProcessorUtil;
 import com.liferay.portal.kernel.log.Log;
@@ -64,6 +46,19 @@ import com.liferay.portal.theme.ThemeGroupLimit;
 import com.liferay.portal.util.PortalUtil;
 import com.liferay.portal.util.PropsValues;
 import com.liferay.util.ContextReplace;
+
+import java.io.File;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import javax.servlet.ServletContext;
 
 /**
  * @author Brian Wing Shun Chan
@@ -175,9 +170,11 @@ public class ThemeLocalServiceImpl extends ThemeLocalServiceBaseImpl {
 				return null;
 			}
 
-			_log.error(
-				"No theme found for default theme id " + themeId +
-					". Returning a random theme.");
+			if (!themeId.contains(PortletConstants.WAR_SEPARATOR)) {
+				_log.error(
+					"No theme found for default theme id " + themeId +
+						". Returning a random theme.");
+			}
 
 			Iterator<Map.Entry<String, Theme>> itr =
 				_themes.entrySet().iterator();
@@ -213,8 +210,8 @@ public class ThemeLocalServiceImpl extends ThemeLocalServiceBaseImpl {
 		while (itr.hasNext()) {
 			Theme theme = itr.next();
 
-			if ((theme.getThemeId().equals("controlpanel")) ||
-				(!theme.isGroupAvailable(groupId)) ||
+			if (theme.getThemeId().equals("controlpanel") ||
+				!theme.isGroupAvailable(groupId) ||
 				(theme.isWapTheme() != wapTheme)) {
 
 				itr.remove();
@@ -269,44 +266,6 @@ public class ThemeLocalServiceImpl extends ThemeLocalServiceBaseImpl {
 					}
 				}
 			}
-			
-			Set<String> themes = new HashSet<String>();
-			ClassLoader classLoader = getClass().getClassLoader();
-			// load xmls
-			String resourceName = "WEB-INF/liferay-look-and-feel-ext.xml";
-			Enumeration<URL> resources = classLoader.getResources(resourceName);
-			if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
-				_log.debug("No " + resourceName + " has been found");
-			}
-			while (resources.hasMoreElements()) {
-				URL resource = resources.nextElement();
-				if (_log.isDebugEnabled()) {
-					_log.debug("Loading " + resourceName + " from: " + resource);
-				}
-
-				if (resource == null) {
-					continue;
-				}
-
-				InputStream is = new UrlResource(resource).getInputStream();
-				try {
-					String xmlExt = IOUtils.toString(is, "UTF-8");
-					themes.addAll(_readThemes(
-						servletContextName, servletContext, themesPath,
-						loadFromServletContext, xmlExt, pluginPackage));
-				} catch (Exception e) {
-					_log.error("Problem while loading file " + resource, e);
-				} finally {
-					is.close();
-				}
-			}
-
-			for (String themeId : themes) {
-				if (!themeIdsList.contains(themeId)) {
-					themeIdsList.add(themeId);
-				}
-			}
-			
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -749,8 +708,8 @@ public class ThemeLocalServiceImpl extends ThemeLocalServiceBaseImpl {
 
 				if (customElement != null) {
 					layoutTemplateLocalService.readLayoutTemplate(
-						servletContextName, servletContext, null,
-						customElement, false, themeId, pluginPackage);
+						servletContextName, servletContext, null, customElement,
+						false, themeId, pluginPackage);
 				}
 			}
 

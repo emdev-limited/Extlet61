@@ -14,23 +14,6 @@
 
 package com.liferay.portal.service.impl;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import javax.servlet.ServletContext;
-
-import org.apache.commons.io.IOUtils;
-import org.springframework.core.io.UrlResource;
-
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.io.DummyWriter;
 import com.liferay.portal.kernel.log.Log;
@@ -55,6 +38,18 @@ import com.liferay.portal.model.impl.LayoutTemplateImpl;
 import com.liferay.portal.service.base.LayoutTemplateLocalServiceBaseImpl;
 import com.liferay.portal.util.PropsValues;
 import com.liferay.portlet.layoutconfiguration.util.velocity.InitColumnProcessor;
+
+import java.io.IOException;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.servlet.ServletContext;
 
 /**
  * @author Ivica Cardic
@@ -297,51 +292,6 @@ public class LayoutTemplateLocalServiceImpl
 					}
 				}
 			}
-
-			Set<ObjectValuePair<String, Boolean>> curLayoutTemplateIds =
-				new HashSet<ObjectValuePair<String, Boolean>>();
-
-			ClassLoader classLoader = getClass().getClassLoader();
-			// load xmls
-			String resourceName = "WEB-INF/liferay-layout-templates-ext.xml";
-			Enumeration<URL> resources = classLoader.getResources(resourceName);
-			if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
-				_log.debug("No " + resourceName + " has been found");
-			}
-			while (resources.hasMoreElements()) {
-				URL resource = resources.nextElement();
-				if (_log.isDebugEnabled()) {
-					_log.debug("Loading " + resourceName + " from: " + resource);
-				}
-
-				if (resource == null) {
-					continue;
-				}
-
-				InputStream is = new UrlResource(resource).getInputStream();
-				try {
-					String xmlExt = IOUtils.toString(is, "UTF-8");
-					curLayoutTemplateIds.addAll(
-						_readLayoutTemplates(
-							servletContextName, servletContext, xmlExt,
-							pluginPackage));
-				} catch (Exception e) {
-					_log.error("Problem while loading file " + resource, e);
-				} finally {
-					is.close();
-				}
-			}
-
-			Iterator<ObjectValuePair<String, Boolean>> itr =
-				curLayoutTemplateIds.iterator();
-
-			while (itr.hasNext()) {
-				ObjectValuePair<String, Boolean> ovp = itr.next();
-
-				if (!layoutTemplateIds.contains(ovp)) {
-					layoutTemplateIds.add(ovp);
-				}
-			}
 		}
 		catch (Exception e) {
 			_log.error(e, e);
@@ -541,8 +491,8 @@ public class LayoutTemplateLocalServiceImpl
 	}
 
 	public void uninstallLayoutTemplates(String themeId) {
-		Map<String, LayoutTemplate> _themesStandard =
-			_getThemesStandard(themeId);
+		Map<String, LayoutTemplate> _themesStandard = _getThemesStandard(
+			themeId);
 
 		for (Map.Entry<String, LayoutTemplate> entry :
 				_themesStandard.entrySet()) {
@@ -595,41 +545,6 @@ public class LayoutTemplateLocalServiceImpl
 		}
 	}
 
-	private Set<ObjectValuePair<String, Boolean>> _readLayoutTemplates(
-			String servletContextName, ServletContext servletContext,
-			String xml, PluginPackage pluginPackage)
-		throws Exception {
-
-		Set<ObjectValuePair<String, Boolean>> layoutTemplateIds =
-			new HashSet<ObjectValuePair<String, Boolean>>();
-
-		if (xml == null) {
-			return layoutTemplateIds;
-		}
-
-		Document doc = SAXReaderUtil.read(xml, true);
-
-		Element root = doc.getRootElement();
-
-		Element standardEl = root.element("standard");
-
-		if (standardEl != null) {
-			readLayoutTemplate(
-				servletContextName, servletContext, layoutTemplateIds,
-				standardEl, true, null, pluginPackage);
-		}
-
-		Element customEl = root.element("custom");
-
-		if (customEl != null) {
-			readLayoutTemplate(
-				servletContextName, servletContext, layoutTemplateIds,
-				customEl, false, null, pluginPackage);
-		}
-
-		return layoutTemplateIds;
-	}
-
 	private Map<String, LayoutTemplate> _getThemesCustom(String themeId) {
 		String key = themeId.concat(LayoutTemplateConstants.CUSTOM_SEPARATOR);
 
@@ -658,20 +573,55 @@ public class LayoutTemplateLocalServiceImpl
 		return layoutTemplates;
 	}
 
+	private Set<ObjectValuePair<String, Boolean>> _readLayoutTemplates(
+			String servletContextName, ServletContext servletContext,
+			String xml, PluginPackage pluginPackage)
+		throws Exception {
+
+		Set<ObjectValuePair<String, Boolean>> layoutTemplateIds =
+			new HashSet<ObjectValuePair<String, Boolean>>();
+
+		if (xml == null) {
+			return layoutTemplateIds;
+		}
+
+		Document doc = SAXReaderUtil.read(xml, true);
+
+		Element root = doc.getRootElement();
+
+		Element standardEl = root.element("standard");
+
+		if (standardEl != null) {
+			readLayoutTemplate(
+				servletContextName, servletContext, layoutTemplateIds,
+				standardEl, true, null, pluginPackage);
+		}
+
+		Element customEl = root.element("custom");
+
+		if (customEl != null) {
+			readLayoutTemplate(
+				servletContextName, servletContext, layoutTemplateIds, customEl,
+				false, null, pluginPackage);
+		}
+
+		return layoutTemplateIds;
+	}
+
 	private static Log _log = LogFactoryUtil.getLog(
 		LayoutTemplateLocalServiceImpl.class);
 
-	private static Map<String, LayoutTemplate> _portalStandard =
-		new LinkedHashMap<String, LayoutTemplate>();
 	private static Map<String, LayoutTemplate> _portalCustom =
 		new LinkedHashMap<String, LayoutTemplate>();
-
-	private static Map<String, LayoutTemplate> _warStandard =
-		new LinkedHashMap<String, LayoutTemplate>();
-	private static Map<String, LayoutTemplate> _warCustom =
+	private static Map<String, LayoutTemplate> _portalStandard =
 		new LinkedHashMap<String, LayoutTemplate>();
 
 	private static Map<String, Map<String, LayoutTemplate>> _themes =
 		new LinkedHashMap<String, Map<String, LayoutTemplate>>();
+
+	private static Map<String, LayoutTemplate> _warCustom =
+		new LinkedHashMap<String, LayoutTemplate>();
+	private static Map<String, LayoutTemplate> _warStandard =
+		new LinkedHashMap<String, LayoutTemplate>();
 
 }

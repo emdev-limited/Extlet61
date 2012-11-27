@@ -14,18 +14,18 @@
 
 package com.liferay.portal.spring.context;
 
-import java.io.FileNotFoundException;
-import java.util.List;
-
-import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
-import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.web.context.support.XmlWebApplicationContext;
-
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.ListUtil;
 import com.liferay.portal.util.PropsValues;
+
+import java.io.FileNotFoundException;
+
+import java.util.List;
+
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.web.context.support.XmlWebApplicationContext;
 
 /**
  * <p>
@@ -40,9 +40,11 @@ import com.liferay.portal.util.PropsValues;
 public class PortalApplicationContext extends XmlWebApplicationContext {
 
 	@Override
-	protected void loadBeanDefinitions(XmlBeanDefinitionReader reader) {
+	protected void loadBeanDefinitions(
+		XmlBeanDefinitionReader xmlBeanDefinitionReader) {
+
 		try {
-			super.loadBeanDefinitions(reader);
+			super.loadBeanDefinitions(xmlBeanDefinitionReader);
 		}
 		catch (Exception e) {
 			if (_log.isWarnEnabled()) {
@@ -50,7 +52,7 @@ public class PortalApplicationContext extends XmlWebApplicationContext {
 			}
 		}
 
-		reader.setResourceLoader(new DefaultResourceLoader());
+		xmlBeanDefinitionReader.setResourceLoader(new DefaultResourceLoader());
 
 		if (PropsValues.SPRING_CONFIGS == null) {
 			return;
@@ -66,10 +68,9 @@ public class PortalApplicationContext extends XmlWebApplicationContext {
 			configLocations.remove("META-INF/jpa-spring.xml");
 		}
 
-		reader.setResourceLoader(new PathMatchingResourcePatternResolver());
 		for (String configLocation : configLocations) {
 			try {
-				reader.loadBeanDefinitions(configLocation);
+				xmlBeanDefinitionReader.loadBeanDefinitions(configLocation);
 			}
 			catch (Exception e) {
 				Throwable cause = e.getCause();
