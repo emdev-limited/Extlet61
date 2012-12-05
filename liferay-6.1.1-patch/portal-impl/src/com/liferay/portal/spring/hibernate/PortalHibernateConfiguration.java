@@ -14,6 +14,22 @@
 
 package com.liferay.portal.spring.hibernate;
 
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Enumeration;
+import java.util.Map;
+import java.util.Properties;
+
+import javassist.util.proxy.ProxyFactory;
+
+import org.hibernate.HibernateException;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.cfg.Environment;
+import org.hibernate.dialect.Dialect;
+import org.springframework.core.io.UrlResource;
+import org.springframework.orm.hibernate3.LocalSessionFactoryBean;
+
 import com.liferay.portal.kernel.dao.db.DB;
 import com.liferay.portal.kernel.dao.db.DBFactoryUtil;
 import com.liferay.portal.kernel.io.unsync.UnsyncByteArrayInputStream;
@@ -26,21 +42,6 @@ import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.security.pacl.PACLClassLoaderUtil;
 import com.liferay.portal.util.PropsUtil;
 import com.liferay.portal.util.PropsValues;
-
-import java.io.InputStream;
-
-import java.util.Map;
-import java.util.Properties;
-
-import javassist.util.proxy.ProxyFactory;
-
-import org.hibernate.HibernateException;
-import org.hibernate.SessionFactory;
-import org.hibernate.cfg.Configuration;
-import org.hibernate.cfg.Environment;
-import org.hibernate.dialect.Dialect;
-
-import org.springframework.orm.hibernate3.LocalSessionFactoryBean;
 
 /**
  * @author Brian Wing Shun Chan
@@ -172,7 +173,42 @@ public class PortalHibernateConfiguration extends LocalSessionFactoryBean {
 
 		ClassLoader classLoader = getConfigurationClassLoader();
 
-		InputStream is = classLoader.getResourceAsStream(resource);
+		if(!resource.startsWith("classpath*:")){
+			InputStream is = classLoader.getResourceAsStream(resource);
+			readResource(configuration, resource, is);
+		} else {
+			String resourceName = resource.substring("classpath*:".length());
+			try {
+				Enumeration<URL> resources = 
+					classLoader.getResources(resourceName);
+					if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
+						_log.debug("No " + resourceName + " has been found");
+					}
+				while (resources.hasMoreElements()) {
+					URL resourceFullName = resources.nextElement();
+					try {
+						InputStream is = new UrlResource(resourceFullName).getInputStream();
+						readResource(configuration, resource, is);
+					}
+					catch (Exception e2) {
+						if (_log.isWarnEnabled()) {
+							_log.warn("Problem while loading " + resource, e2);
+						}
+					}
+				}
+			}
+			catch (Exception e2) {
+				if (_log.isWarnEnabled()) {
+					_log.warn("Problem while loading classLoader resources: " 
+						+ resourceName, e2);
+				}
+			}
+		}
+
+	}
+
+	protected void readResource(Configuration configuration, String resource, InputStream is)
+		throws Exception {
 
 		if (is == null) {
 			return;

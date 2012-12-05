@@ -14,6 +14,29 @@
 
 package com.liferay.portal.service.impl;
 
+import java.io.File;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import javax.portlet.PortletMode;
+import javax.portlet.PreferencesValidator;
+import javax.portlet.WindowState;
+import javax.servlet.ServletContext;
+
+import org.apache.commons.io.IOUtils;
+import org.springframework.core.io.UrlResource;
+
 import com.liferay.portal.kernel.cluster.Clusterable;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
@@ -77,25 +100,6 @@ import com.liferay.portlet.PortletQNameUtil;
 import com.liferay.portlet.expando.model.CustomAttributesDisplay;
 import com.liferay.util.ContentUtil;
 import com.liferay.util.bridges.mvc.MVCPortlet;
-
-import java.io.File;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.portlet.PortletMode;
-import javax.portlet.PreferencesValidator;
-import javax.portlet.WindowState;
-
-import javax.servlet.ServletContext;
 
 /**
  * @author Brian Wing Shun Chan
@@ -624,12 +628,20 @@ public class PortletLocalServiceImpl extends PortletLocalServiceBaseImpl {
 					servletContext, xmls[1], portletsPool, servletURLPatterns,
 					pluginPackage));
 
+			portletIds.addAll(
+				_readPortletExtXML(
+					servletContext, portletsPool, servletURLPatterns,
+					pluginPackage));			
+			
 			Set<String> liferayPortletIds = _readLiferayPortletXML(
 				xmls[2], portletsPool);
 
 			liferayPortletIds.addAll(
 				_readLiferayPortletXML(xmls[3], portletsPool));
 
+			liferayPortletIds.addAll(
+					_readLiferayPortletExtXML(portletsPool));
+			
 			// Check for missing entries in liferay-portlet.xml
 
 			for (String portletId : portletIds) {
@@ -1053,6 +1065,41 @@ public class PortletLocalServiceImpl extends PortletLocalServiceBaseImpl {
 		_readLiferayDisplay(
 			servletContextName, rootElement, portletCategory, portletIds);
 
+		if(servletContextName == null){
+			ClassLoader classLoader = getClass().getClassLoader();
+			String resourceName = "WEB-INF/liferay-display-ext.xml";
+			Enumeration<URL> resources = classLoader.getResources(resourceName);
+			if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
+				_log.debug("No " + resourceName + " has been found");
+			}
+			while (resources.hasMoreElements()) {
+				URL resource = resources.nextElement();
+				if (_log.isDebugEnabled()) {
+					_log.debug("Loading " + resourceName + " from: " + resource);
+				}
+
+				if(resource == null){
+					continue;
+				}
+
+				InputStream is = new UrlResource(resource).getInputStream();
+				try {
+					String xmlExt = IOUtils.toString(is, "UTF-8");
+					Document extDoc = SAXReaderUtil.read(xmlExt, true);
+
+					Element extRootElement = extDoc.getRootElement();
+
+					_readLiferayDisplay(
+							servletContextName, extRootElement, portletCategory, portletIds);
+				} catch(Exception e){
+					_log.error("Problem while loading file " + resource, e);
+				} finally {
+					is.close();
+				}
+			}
+			
+		}
+		
 		// Portlets that do not belong to any categories should default to the
 		// Undefined category
 
@@ -1641,6 +1688,86 @@ public class PortletLocalServiceImpl extends PortletLocalServiceBaseImpl {
 		return liferayPortletIds;
 	}
 
+	private Set<String> _readLiferayPortletExtXML(Map<String, Portlet> portletsPool)
+		throws Exception {
+		
+		Set<String> result = new HashSet<String>();
+		ClassLoader classLoader = getClass().getClassLoader();
+		// load xmls
+		String resourceName = "WEB-INF/liferay-portlet-ext.xml";
+		Enumeration<URL> resources = classLoader.getResources(resourceName);
+		if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
+			_log.debug("No " + resourceName + " has been found");
+		}
+		while (resources.hasMoreElements()) {
+			URL resource = resources.nextElement();
+			if (_log.isDebugEnabled()) {
+				_log.debug("Loading " + resourceName + " from: " + resource);
+			}
+
+			if(resource == null){
+				continue;
+			}
+
+			InputStream is = new UrlResource(resource).getInputStream();
+			try {
+				String xmlExt = IOUtils.toString(is, "UTF-8");
+				result.addAll(_readLiferayPortletXML(xmlExt, portletsPool));
+			} catch(Exception e){
+				_log.error("Problem while loading file " + resource, e);
+			} finally {
+				is.close();
+			}
+		}
+
+
+		return result;
+	}
+
+
+	private Set<String> _readPortletExtXML(
+			ServletContext servletContext, 
+			Map<String, Portlet> portletsPool, Set<String> servletURLPatterns,
+			PluginPackage pluginPackage)
+		throws Exception {
+
+
+
+		Set<String> result = new HashSet<String>();
+
+		ClassLoader classLoader = getClass().getClassLoader();
+		// load xmls
+		String resourceName = "WEB-INF/portlet-ext.xml";
+		Enumeration<URL> resources = classLoader.getResources(resourceName);
+		if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
+			_log.debug("No " + resourceName + " has been found");
+		}
+		while (resources.hasMoreElements()) {
+			URL resource = resources.nextElement();
+			if (_log.isDebugEnabled()) {
+				_log.debug("Loading " + resourceName + " from: " + resource);
+			}
+
+			if(resource == null){
+				continue;
+			}
+
+			InputStream is = new UrlResource(resource).getInputStream();
+			try {
+				String xmlExt = IOUtils.toString(is, "UTF-8");
+				result.addAll(_readPortletXML(servletContext, xmlExt, portletsPool, servletURLPatterns, pluginPackage));
+			} catch(Exception e){
+				_log.error("Problem while loading file " + resource, e);
+			} finally {
+				is.close();
+			}
+		}
+
+
+		return result;
+
+	}
+	
 	private Set<String> _readPortletXML(
 			ServletContext servletContext, String xml,
 			Map<String, Portlet> portletsPool, Set<String> servletURLPatterns,

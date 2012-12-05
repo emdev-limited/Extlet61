@@ -14,6 +14,16 @@
 
 package com.liferay.portal.language;
 
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.liferay.portal.kernel.language.LanguageUtil;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
@@ -25,17 +35,6 @@ import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.security.lang.PortalSecurityManagerThreadLocal;
 import com.liferay.portal.tools.LangBuilder;
-
-import java.io.InputStream;
-
-import java.net.URL;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Shuyang Zhou
@@ -192,23 +191,29 @@ public class LanguageResources {
 
 			ClassLoader classLoader = LanguageResources.class.getClassLoader();
 
-			URL url = classLoader.getResource(name);
-
-			if (_log.isInfoEnabled()) {
-				_log.info("Attempting to load " + name);
+			Enumeration<URL> urls = classLoader.getResources(name);
+			if (_log.isDebugEnabled() && !urls.hasMoreElements()) {
+				_log.debug("No " + name + " has been found");
 			}
-
-			if (url != null) {
-				InputStream inputStream = url.openStream();
-
-				properties = PropertiesUtil.load(inputStream, StringPool.UTF8);
-
-				inputStream.close();
+			while (urls.hasMoreElements()) {
+				URL url = urls.nextElement();
 
 				if (_log.isInfoEnabled()) {
-					_log.info(
-						"Loading " + url + " with " + properties.size() +
-							" values");
+					_log.info("Attempting to load " + name);
+				}
+	
+				if (url != null) {
+					InputStream inputStream = url.openStream();
+	
+					properties = PropertiesUtil.load(inputStream, StringPool.UTF8);
+	
+					inputStream.close();
+	
+					if (_log.isInfoEnabled()) {
+						_log.info(
+							"Loading " + url + " with " + properties.size() +
+								" values");
+					}
 				}
 			}
 		}

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
-<project name="liferay-6.1.0-patch" basedir="." default="zip">
-	<property name="liferay.tomcat.install" value="/Users/akakunin/Desktop/work/EmForge/liferay61/tomcat-7.0.23/" />
+<project name="liferay-6.1.1-patch" basedir="." default="zip">
+	<property name="liferay.tomcat.install" value="/Users/akakunin/Desktop/work/EmForge/liferay611/tomcat-7.0.27/" />
     <echo>${liferay.tomcat.install}</echo>
 	<path id="portal.classpath">
 		<fileset dir="${liferay.tomcat.install}/lib" includes="*.jar" />
