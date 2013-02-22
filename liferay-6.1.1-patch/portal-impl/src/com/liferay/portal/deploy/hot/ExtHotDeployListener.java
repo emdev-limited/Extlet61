@@ -326,7 +326,7 @@ public class ExtHotDeployListener extends BaseHotDeployListener {
 
 		Set<ServletContext> ctxs = ExtRegistry.getServletContexts();
 		for (ServletContext servletContext : ctxs) {
-			String pluginWebXML = servletContext.getRealPath("WEB-INF/ext-web/docroot/WEB-INF/web.xml");
+			String pluginWebXML = servletContext.getRealPath("/WEB-INF/ext-web/docroot/WEB-INF/web.xml");
 			if (!FileUtil.exists(pluginWebXML)) {
 				if (_log.isDebugEnabled()) {
 					_log.debug("Ext Plugin's web.xml not found for " + servletContext.getServletContextName());
@@ -378,7 +378,7 @@ public class ExtHotDeployListener extends BaseHotDeployListener {
 		extPluginPropsFile.createNewFile();
 		Set<ServletContext> ctxs = ExtRegistry.getServletContexts();
 		for (ServletContext servletContext : ctxs) {
-			URL pluginPropsURL = servletContext.getResource("WEB-INF/ext-web/docroot/WEB-INF/classes/portal-ext.properties");
+			URL pluginPropsURL = servletContext.getResource("/WEB-INF/ext-web/docroot/WEB-INF/classes/portal-ext.properties");
 			if (pluginPropsURL == null) {
 				if (_log.isDebugEnabled()) {
 					_log.debug("Ext Plugin's portal-ext.properties not found");
@@ -436,7 +436,7 @@ public class ExtHotDeployListener extends BaseHotDeployListener {
 	}
 
 	private void rebuildServiceJS(String portalWebDir, ServletContext servletContext) throws Exception {
-		URL pluginJSURL = servletContext.getResource("WEB-INF/ext-web/docroot/html/js/liferay/service.js");
+		URL pluginJSURL = servletContext.getResource("/WEB-INF/ext-web/docroot/html/js/liferay/service.js");
 		if (pluginJSURL == null) {
 			if (_log.isDebugEnabled()) {
 				_log.debug("Ext Plugin's service.js not found for "
