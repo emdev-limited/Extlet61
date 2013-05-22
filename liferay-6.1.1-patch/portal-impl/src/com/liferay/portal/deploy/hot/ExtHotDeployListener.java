@@ -326,23 +326,27 @@ public class ExtHotDeployListener extends BaseHotDeployListener {
 
 		Set<ServletContext> ctxs = ExtRegistry.getServletContexts();
 		for (ServletContext servletContext : ctxs) {
-			String pluginWebXML = servletContext.getRealPath("/WEB-INF/ext-web/docroot/WEB-INF/web.xml");
-			if (!FileUtil.exists(pluginWebXML)) {
-				if (_log.isDebugEnabled()) {
-					_log.debug("Ext Plugin's web.xml not found for " + servletContext.getServletContextName());
+			if (servletContext != null) {
+				String pluginWebXML = servletContext.getRealPath("/WEB-INF/ext-web/docroot/WEB-INF/web.xml");
+				if (!FileUtil.exists(pluginWebXML)) {
+					if (_log.isDebugEnabled()) {
+						_log.debug("Ext Plugin's web.xml not found for " + servletContext.getServletContextName());
+					}
+					return;
 				}
-				return;
+				if (_log.isDebugEnabled()) {
+					_log.debug("Rebuilding portal's web.xml using " + pluginWebXML);
+				}
+	
+				rebuildWebXml(pluginWebXML);
 			}
-			if (_log.isDebugEnabled()) {
-				_log.debug("Rebuilding portal's web.xml using " + pluginWebXML);
-			}
-
-			rebuildWebXml(pluginWebXML);
 		}
 	}
 
 
 	protected void rebuildWebXml(String pluginWebXMLFileName) throws IOException {
+		_log.warn("Rebuilding web.xml is disabled in Extlet 6.1.1");
+		/*
 		String portalWebDir = PortalUtil.getPortalWebDir();
 		String tmpDir =
 			SystemProperties.get(SystemProperties.TMP_DIR) + StringPool.SLASH +
@@ -368,6 +372,7 @@ public class ExtHotDeployListener extends BaseHotDeployListener {
 			tmpWebXml, new File(portalWebDir + "WEB-INF"), true, true);
 
 		FileUtil.deltree(tmpDir);
+		*/
 	}
 
 
@@ -377,18 +382,22 @@ public class ExtHotDeployListener extends BaseHotDeployListener {
 		extPluginPropsFile.delete();
 		extPluginPropsFile.createNewFile();
 		Set<ServletContext> ctxs = ExtRegistry.getServletContexts();
-		for (ServletContext servletContext : ctxs) {
-			URL pluginPropsURL = servletContext.getResource("/WEB-INF/ext-web/docroot/WEB-INF/classes/portal-ext.properties");
-			if (pluginPropsURL == null) {
-				if (_log.isDebugEnabled()) {
-					_log.debug("Ext Plugin's portal-ext.properties not found");
+		if (ctxs != null) {
+			for (ServletContext servletContext : ctxs) {
+				if (servletContext != null) {
+					URL pluginPropsURL = servletContext.getResource("/WEB-INF/ext-web/docroot/WEB-INF/classes/portal-ext.properties");
+					if (pluginPropsURL == null) {
+						if (_log.isDebugEnabled()) {
+							_log.debug("Ext Plugin's portal-ext.properties not found");
+						}
+						return;
+					}
+					if (_log.isDebugEnabled()) {
+						_log.debug("Loading portal-ext.properties from " + pluginPropsURL);
+					}
+					rebuildPortalExtPluginProperties(pluginPropsURL);
 				}
-				return;
 			}
-			if (_log.isDebugEnabled()) {
-				_log.debug("Loading portal-ext.properties from " + pluginPropsURL);
-			}
-			rebuildPortalExtPluginProperties(pluginPropsURL);
 		}
 	}
 
@@ -436,36 +445,37 @@ public class ExtHotDeployListener extends BaseHotDeployListener {
 	}
 
 	private void rebuildServiceJS(String portalWebDir, ServletContext servletContext) throws Exception {
-		URL pluginJSURL = servletContext.getResource("/WEB-INF/ext-web/docroot/html/js/liferay/service.js");
-		if (pluginJSURL == null) {
-			if (_log.isDebugEnabled()) {
-				_log.debug("Ext Plugin's service.js not found for "
-					+ servletContext.getServletContextName());
-			}
-			return;
-		}
-		if (_log.isDebugEnabled()) {
-			_log.debug("Loading service.js from " + pluginJSURL);
-		}
-		// append
-		FileOutputStream portalJS = new FileOutputStream(portalWebDir + "html/js/liferay/service.js", true);
-		try {
-			InputStream pluginJS = new UrlResource(pluginJSURL).getInputStream();
-			try {
-				byte[] buff = new byte[4096];
-				int len = 0;
-				portalJS.write(new byte[]{13, 10});
-				while((len = pluginJS.read(buff)) != -1){
-					portalJS.write(buff, 0, len);
+		if (servletContext != null) {
+			URL pluginJSURL = servletContext.getResource("/WEB-INF/ext-web/docroot/html/js/liferay/service.js");
+			if (pluginJSURL == null) {
+				if (_log.isDebugEnabled()) {
+					_log.debug("Ext Plugin's service.js not found for "
+						+ servletContext.getServletContextName());
 				}
-				portalJS.write(new byte[]{13, 10});
-			} finally {
-				pluginJS.close();
+				return;
 			}
-		} finally {
-			portalJS.close();
+			if (_log.isDebugEnabled()) {
+				_log.debug("Loading service.js from " + pluginJSURL);
+			}
+			// append
+			FileOutputStream portalJS = new FileOutputStream(portalWebDir + "html/js/liferay/service.js", true);
+			try {
+				InputStream pluginJS = new UrlResource(pluginJSURL).getInputStream();
+				try {
+					byte[] buff = new byte[4096];
+					int len = 0;
+					portalJS.write(new byte[]{13, 10});
+					while((len = pluginJS.read(buff)) != -1){
+						portalJS.write(buff, 0, len);
+					}
+					portalJS.write(new byte[]{13, 10});
+				} finally {
+					pluginJS.close();
+				}
+			} finally {
+				portalJS.close();
+			}
 		}
-
 	}
 
 	private void resetPortalFileBackup(String portalFileName) throws IOException {

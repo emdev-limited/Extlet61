@@ -54,25 +54,27 @@ public class ExtRegistry {
 
 		Map<String, Set<String>> conflicts = new HashMap<String, Set<String>>();
 
-		for(ExtRegistryInfo regInfo : _extMap.values()){
-			String curServletContextName = regInfo.getServletContext().getServletContextName();
-			Set<String> curFiles = regInfo.getFiles();
-
-			for (String file : files) {
-				if (!curFiles.contains(file)) {
-					continue;
+		for(ExtRegistryInfo regInfo : _extMap.values()) {
+			if (regInfo != null && regInfo.getServletContext() != null) {
+				String curServletContextName = regInfo.getServletContext().getServletContextName();
+				Set<String> curFiles = regInfo.getFiles();
+	
+				for (String file : files) {
+					if (!curFiles.contains(file)) {
+						continue;
+					}
+	
+					Set<String> conflictFiles = conflicts.get(
+						curServletContextName);
+	
+					if (conflictFiles == null) {
+						conflictFiles = new TreeSet<String>();
+	
+						conflicts.put(curServletContextName, conflictFiles);
+					}
+	
+					conflictFiles.add(file);
 				}
-
-				Set<String> conflictFiles = conflicts.get(
-					curServletContextName);
-
-				if (conflictFiles == null) {
-					conflictFiles = new TreeSet<String>();
-
-					conflicts.put(curServletContextName, conflictFiles);
-				}
-
-				conflictFiles.add(file);
 			}
 		}
 
