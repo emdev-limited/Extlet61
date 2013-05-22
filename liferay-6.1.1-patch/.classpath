@@ -22,7 +22,6 @@
 			<attribute name="org.eclipse.jst.component.nondependency" value=""/>
 		</attributes>
 	</classpathentry>
-	<classpathentry combineaccessrules="false" kind="src" path="/portal"/>
 	<classpathentry kind="lib" path="/portal/lib/portal/commons-configuration.jar" sourcepath="/Users/akakunin/.m2/repository/commons-configuration/commons-configuration/1.6/commons-configuration-1.6-sources.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/portal/spring-core.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/portal/commons-io.jar"/>
@@ -44,5 +43,6 @@
 	<classpathentry kind="lib" path="/portal/lib/portal/commons-logging.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/global/portlet.jar"/>
 	<classpathentry kind="lib" path="/portal/lib/development/jsp-api.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/portal-6.1.x"/>
 	<classpathentry kind="output" path="portal-impl/classes"/>
 </classpath>
