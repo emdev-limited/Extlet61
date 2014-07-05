@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -41,7 +41,7 @@ public class RemotingServlet extends DispatcherServlet {
 		TunnelApplicationContext.class.getName();
 
 	public static final String CONTEXT_CONFIG_LOCATION =
-			"/WEB-INF/remoting-servlet.xml,classpath*:WEB-INF/remoting-servlet-ext.xml";
+		"/WEB-INF/remoting-servlet.xml,/WEB-INF/remoting-servlet-ext.xml";
 
 	@Override
 	public Class<?> getContextClass() {

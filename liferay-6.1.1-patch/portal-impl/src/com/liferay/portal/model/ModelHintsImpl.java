@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2000-2012 Liferay, Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Liferay, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -14,24 +14,9 @@
 
 package com.liferay.portal.model;
 
-import java.io.InputStream;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-
-import org.springframework.core.io.UrlResource;
-
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.security.pacl.DoPrivileged;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.ListUtil;
 import com.liferay.portal.kernel.util.PropsKeys;
@@ -46,9 +31,23 @@ import com.liferay.portal.service.ClassNameLocalServiceUtil;
 import com.liferay.portal.util.PropsUtil;
 import com.liferay.util.PwdGenerator;
 
+import java.io.InputStream;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
 /**
  * @author Brian Wing Shun Chan
  */
+@DoPrivileged
 public class ModelHintsImpl implements ModelHints {
 
 	public void afterPropertiesSet() {
@@ -64,26 +63,7 @@ public class ModelHintsImpl implements ModelHints {
 				PropsUtil.get(PropsKeys.MODEL_HINTS_CONFIGS));
 
 			for (int i = 0; i < configs.length; i++) {
-				if(!configs[i].startsWith("classpath*:")){
-					read(classLoader, configs[i]);
-				} else {
-					String configName = configs[i].substring("classpath*:".length());
-					Enumeration<URL> resources = classLoader.getResources(configName);
-					if (_log.isDebugEnabled() && !resources.hasMoreElements()) {
-						_log.debug("No " + configName + " has been found");
-					}
-					while (resources.hasMoreElements()) {
-						URL resource = resources.nextElement();
-						if(_log.isDebugEnabled()){
-							_log.debug("Loading "+configName+" from: " + resource);
-						}
-						InputStream is = new UrlResource(resource).getInputStream();
-
-						if (is != null) {
-							read(classLoader, resource.toString(), is);
-						}
-					}
-				}
+				read(classLoader, configs[i]);
 			}
 		}
 		catch (Exception e) {
@@ -91,15 +71,18 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
 	public String buildCustomValidatorName(String validatorName) {
 		return validatorName.concat(StringPool.UNDERLINE).concat(
 			PwdGenerator.getPassword(PwdGenerator.KEY3, 4));
 	}
 
+	@Override
 	public Map<String, String> getDefaultHints(String model) {
 		return _defaultHints.get(model);
 	}
 
+	@Override
 	public com.liferay.portal.kernel.xml.Element getFieldsEl(
 		String model, String field) {
 
@@ -121,9 +104,10 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
 	public Map<String, String> getHints(String model, String field) {
-		Map<String, Object> fields =
-			(Map<String, Object>)_modelFields.get(model);
+		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
+			model);
 
 		if (fields == null) {
 			return null;
@@ -133,10 +117,28 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
+	public int getMaxLength(String model, String field) {
+		Map<String, String> hints = getHints(model, field);
+
+		if (hints == null) {
+			return Integer.MAX_VALUE;
+		}
+
+		int maxLength = GetterUtil.getInteger(
+			ModelHintsConstants.TEXT_MAX_LENGTH);
+
+		maxLength = GetterUtil.getInteger(hints.get("max-length"), maxLength);
+
+		return maxLength;
+	}
+
+	@Override
 	public List<String> getModels() {
 		return ListUtil.fromCollection(_models);
 	}
 
+	@Override
 	public Tuple getSanitizeTuple(String model, String field) {
 		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
 			model);
@@ -149,6 +151,7 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
 	public List<Tuple> getSanitizeTuples(String model) {
 		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
 			model);
@@ -173,6 +176,7 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
 	public String getType(String model, String field) {
 		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
 			model);
@@ -185,6 +189,7 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
 	public List<Tuple> getValidators(String model, String field) {
 		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
 			model);
@@ -199,6 +204,7 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
 	public boolean isCustomValidator(String validatorName) {
 		if (validatorName.equals("custom")) {
 			return true;
@@ -207,6 +213,7 @@ public class ModelHintsImpl implements ModelHints {
 		return false;
 	}
 
+	@Override
 	public boolean isLocalized(String model, String field) {
 		Map<String, Object> fields = (Map<String, Object>)_modelFields.get(
 			model);
@@ -227,11 +234,9 @@ public class ModelHintsImpl implements ModelHints {
 		}
 	}
 
+	@Override
 	public void read(ClassLoader classLoader, String source) throws Exception {
-		read(classLoader, source, classLoader.getResourceAsStream(source));
-	}
-
-	public void read(ClassLoader classLoader, String source, InputStream is) throws Exception {
+		InputStream is = classLoader.getResourceAsStream(source);
 
 		if (is == null) {
 			if (_log.isWarnEnabled()) {
@@ -421,21 +426,13 @@ public class ModelHintsImpl implements ModelHints {
 		_saxReader = saxReader;
 	}
 
+	@Override
 	public String trimString(String model, String field, String value) {
 		if (value == null) {
 			return value;
 		}
 
-		Map<String, String> hints = getHints(model, field);
-
-		if (hints == null) {
-			return value;
-		}
-
-		int maxLength = GetterUtil.getInteger(
-			ModelHintsConstants.TEXT_MAX_LENGTH);
-
-		maxLength = GetterUtil.getInteger(hints.get("max-length"), maxLength);
+		int maxLength = getMaxLength(model, field);
 
 		if (value.length() > maxLength) {
 			return value.substring(0, maxLength);

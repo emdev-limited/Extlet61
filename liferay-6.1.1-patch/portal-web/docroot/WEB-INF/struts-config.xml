@@ -803,6 +803,7 @@
 		</action>
 
 		<action path="/journal/edit_article" type="com.liferay.portlet.journal.action.EditArticleAction">
+			<forward name="portlet.journal.asset.add_asset_redirect" path="portlet.journal.asset.add_asset_redirect" />
 			<forward name="portlet.journal.edit_article" path="portlet.journal.edit_article" />
 			<forward name="portlet.journal.error" path="portlet.journal.error" />
 			<forward name="portlet.journal.update_translation_redirect" path="portlet.journal.update_translation_redirect" />
@@ -1262,12 +1263,6 @@
 			<forward name="portlet.users_admin.error" path="portlet.users_admin.error" />
 		</action>
 
-		<action path="/my_account/select_organization" forward="portlet.users_admin.select_organization" />
-
-		<action path="/my_account/select_regular_role" forward="portlet.roles_admin.select_regular_role" />
-
-		<action path="/my_account/select_site" forward="portlet.sites_admin.select_site" />
-
 		<action path="/my_account/view" type="com.liferay.portlet.myaccount.action.ViewAction">
 			<forward name="portlet.my_account.edit_user" path="portlet.users_admin.edit_user" />
 			<forward name="portlet.my_account.view" path="portlet.my_account.view" />
@@ -1329,6 +1324,8 @@
 		<action path="/my_workflow_instances/view_content" forward="portlet.asset_publisher.view_content" />
 
 		<!-- My Workflow Tasks -->
+
+		<action path="/my_workflow_tasks/add_asset_redirect" forward="portlet.asset_publisher.add_asset_redirect" />
 
 		<action path="/my_workflow_tasks/edit_workflow_task" type="com.liferay.portlet.workflowtasks.action.EditWorkflowTaskAction">
 			<forward name="portlet.workflow_tasks.edit_workflow_task" path="portlet.workflow_tasks.edit_workflow_task" />
@@ -1441,10 +1438,10 @@
 			<forward name="portlet.polls_display.view" path="portlet.polls_display.view" />
 		</action>
 
-        <action path="/polls_display/vote_question" type="com.liferay.portlet.polls.action.ViewQuestionAction" >
-            <forward name="portlet.polls.edit_question" path="portlet.polls_display.view" />
-            <forward name="portlet.polls.error" path="portlet.polls_display.error" />
-            <forward name="portlet.polls_display.view" path="portlet.polls_display.view" />
+		<action path="/polls_display/vote_question" type="com.liferay.portlet.polls.action.ViewQuestionAction" >
+			<forward name="portlet.polls.edit_question" path="portlet.polls_display.view" />
+			<forward name="portlet.polls.error" path="portlet.polls_display.error" />
+			<forward name="portlet.polls_display.view" path="portlet.polls_display.view" />
 		</action>
 
 		<!-- Portal Settings -->
@@ -1591,6 +1588,13 @@
 			<forward name="portlet.users_admin.edit_user" path="portlet.users_admin.edit_user" />
 			<forward name="portlet.users_admin.error" path="portlet.users_admin.error" />
 		</action>
+
+		<action path="/roles_admin/edit_user_portrait" type="com.liferay.portlet.usersadmin.action.EditUserPortraitAction">
+			<forward name="portlet.users_admin.edit_user_portrait" path="portlet.users_admin.edit_user_portrait" />
+			<forward name="portlet.users_admin.error" path="portlet.users_admin.error" />
+		</action>
+
+		<action path="/roles_admin/select_organization" forward="portlet.users_admin.select_organization" />
 
 		<action path="/roles_admin/select_organization_role" forward="portlet.roles_admin.select_organization_role" />
 
@@ -1965,7 +1969,7 @@
 
 		<action path="/users_admin/select_site_role" forward="portlet.roles_admin.select_site_role" />
 
-        <action path="/users_admin/select_user_group" forward="portlet.user_groups_admin.select_user_group" />
+		<action path="/users_admin/select_user_group" forward="portlet.user_groups_admin.select_user_group" />
 
 		<action path="/users_admin/view" forward="portlet.users_admin.view" />
 
@@ -2420,6 +2424,5 @@
 	<plug-in className="com.liferay.portal.struts.PortalTilesPlugin">
 		<set-property property="definitions-config" value="/WEB-INF/tiles-defs.xml,/WEB-INF/tiles-defs-ext.xml" />
 		<set-property property="moduleAware" value="true" />
-		<set-property property="factoryClassname" value="com.liferay.portal.struts.PortalTilesDefinitionsFactory" />
 	</plug-in>
 </struts-config>
